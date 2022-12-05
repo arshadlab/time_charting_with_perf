@@ -1,0 +1,40 @@
+#, Header: ".so name", "symbol filter", "probe name"
+#, ROS2 libraries
+
+librclcpp.so, ::publish(std::unique_ptr<rcl, rclcpp_publish
+librcl.so, rcl_publish$, rclpublish
+librcl.so, rcl_take_request$, rcl_take_request
+librcl.so, rcl_take$, rcl_take_topic_subscription
+librmw_implementation.so, rmw_publish$, rmw_publish
+librmw_implementation.so, rmw_take_request, rmw_take_request
+librmw_implementation.so, rmw_take_with_info, rmw_take_with_info
+librmw_implementation.so, rmw_take$, rmw_take
+
+#, Gazebo native libraries
+libgazebo_physics.so.11.10.1, physics::World::Update(), gazebo_physics_update
+libgazebo_physics.so.11.10.1, gazebo::physics::Model::Update(), gazebo_model_update
+libgazebo_physics.so.11.10.1, physics::Entity::SetWorldPose(ignition, SetEntityWorldPose
+libgazebo_physics.so.11.10.1, ODEPhysics::UpdatePhysics, UpdateODEPyhsics
+libgazebo_physics.so.11.10.1, ODEPhysics::UpdateCollision, UpdateODECollision
+libgazebo_physics.so.11.10.1, ContactManager::PublishContacts, PublishContacts
+libgazebo_physics.so.11.10.1, physics::Link::Update(, UpdateLink
+libgazebo_physics.so.11.10.1, gazebo::physics::Joint::Update(), UpdateJoint
+
+#, Gazebo Plugins
+libgazebo_ros_init.so, GazeboRosInitPrivate::Publish, rosinit_publish_time
+libgazebo_ros_init.so, GazeboRosInitPrivate::UpdateEnd, rosinit_updateend
+libgazebo_ros_vacuum_gripper.so, GazeboRosVacuumGripperPrivate::OnUpdate, vacuum_gripper_update
+libgazebo_ros2_control.so, GazeboRosControlPrivate::Update, ros2_control_update
+libgazebo_ros_joint_state_publisher.so, GazeboRosJointStatePublisherPrivate::OnUpdate, state_pub_update
+libgazebo_ros_diff_drive.so, GazeboRosDiffDrivePrivate::OnUpdate, diffdrive_update
+libgazebo_ros_diff_drive.so, GazeboRosDiffDrivePrivate::PublishOdometryTf, diffdrive_publish_tf
+libgazebo_ros_diff_drive.so, GazeboRosDiffDrivePrivate::PublishOdometryMsg, diffdrive_publish_msg
+libgazebo_ros_diff_drive.so, GazeboRosDiffDrivePrivate::PublishWheelsTf, diffdrive_publish_whltf
+libgazebo_ros_diff_drive.so, GazeboRosDiffDrivePrivate::UpdateWheelVelocities, diffdrive_update_whl_vel
+libgazebo_ros_state.so, GazeboRosStatePrivate::OnUpdate, rosstate_update
+libtf2_ros.so,::TransformBroadcaster::sendTransform(geo, tf2ros_sendtransform
+libcontroller_manager.so, ControllerManager::update, controlmanager_update
+libcontroller_manager.so, ControllerManager::read, controlmanager_read
+libcontroller_manager.so, ControllerManager::write, controlmanager_write
+libjoint_trajectory_controller.so, JointTrajectoryController::update, jointtraj_update
+libjoint_state_broadcaster.so, JointStateBroadcaster::update, jointstate_bcaster_update

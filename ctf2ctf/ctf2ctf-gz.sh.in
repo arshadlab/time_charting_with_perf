@@ -1,0 +1,34 @@
+#!/bin/sh
+
+output="/tmp/ctf2ctf.$$.gz"
+args=
+while [ "$#" -ne 0 ]; do
+    case "$1" in
+        "-o" | "--output")
+            output=$2
+            shift 2
+        ;;
+        *)
+            args="$args $1"
+            shift 1
+        ;;
+    esac
+done
+
+echo "data will be written to $output"
+
+# we will communicate through a named pipe
+pipe=/tmp/ctf2ctf.$$
+mkfifo "$pipe"
+trap "rm $pipe" EXIT
+
+# send to background
+
+$(dirname $(readlink -f $0))/ctf2ctf -o $pipe $args &
+pid=$!
+
+# spawn gzip and send to background
+gzip < "$pipe" > "$output" &
+
+# bring ctf2ctf to foreground again, to allow it to handle signals
+wait $pid

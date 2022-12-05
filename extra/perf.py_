@@ -1,0 +1,60 @@
+import subprocess
+import csv
+#objdump -t  $(cat /proc/$(pgrep gzserver)/maps | grep ros_init | tr -s ' ' | cut -d ' ' -f 6 | sort | uniq) | c++filt | grep 'GazeboRosInitPrivate::Publish' | cut -d ' ' -f 1
+def main():
+        process = 'gzserver'
+        '''
+        probes = [ 
+                   ['libgazebo_ros_init.so', 'GazeboRosInitPrivate::Publish', 'ros_init_pubtime'],
+                   ['libgazebo_ros_init.so', 'GazeboRosInitPrivate::UpdateEnd', 'ros_init_updateend'],
+                   ['libgazebo_ros_vacuum_gripper.so', 'GazeboRosVacuumGripperPrivate::OnUpdate', 'vac_gripper_update'],
+                   ['libgazebo_ros2_control.so', 'GazeboRosControlPrivate::Update', 'ros2_control_update'],
+                   ['libgazebo_ros_joint_state_publisher.so', 'GazeboRosJointStatePublisherPrivate::OnUpdate', 'state_pub_update'],
+                   ['libgazebo_ros_diff_drive.so', 'GazeboRosDiffDrivePrivate::OnUpdate', 'diffdrive_update'],
+                   ['libgazebo_ros_diff_drive.so', 'GazeboRosDiffDrivePrivate::PublishOdometryTf', 'diffdrive_publish_tf'],
+                   ['libgazebo_ros_diff_drive.so', 'GazeboRosDiffDrivePrivate::PublishOdometryMsg', 'diffdrive_publish_msg'],
+                   ['libgazebo_ros_diff_drive.so', 'GazeboRosDiffDrivePrivate::PublishWheelsTf', 'diffdrive_publish_whltf'],
+                   ['libgazebo_ros_diff_drive.so', 'GazeboRosDiffDrivePrivate::UpdateWheelVelocities', 'diffdrive_update_whl_vel'],
+                   ['libgazebo_ros_state.so', 'GazeboRosStatePrivate::OnUpdate', 'ros_state_update'],
+                   ['libtf2_ros.so','::TransformBroadcaster::sendTransform(geo', 'tf2_ros_sendtransform'],
+                   ['libcontroller_manager.so', 'ControllerManager::update', 'control_manager_update'],
+                   ['libcontroller_manager.so', 'ControllerManager::read', 'control_manager_read'],
+                   ['libcontroller_manager.so', 'ControllerManager::write', 'control_manager_write'],
+                   ['libjoint_trajectory_controller.so', 'JointTrajectoryController::update', 'joint_traj_update'],
+                   ['libjoint_state_broadcaster.so', 'JointStateBroadcaster::update', 'joint_state_bcaster_update'],
+                   ['librclcpp.so', '::publish(std::unique_ptr<rcl', 'rclcpp_publish'],
+                   #['librcl.so', 'rcl_publish$', 'rclpublish'],
+                   #['librcl.so', 'rcl_take_request$', 'rcl_take_request'],
+                   #['librcl.so', 'rcl_take$', 'rcl_take_topic_subscription'],
+                   #['librmw_implementation.so', 'rmw_publish$', 'rmw_publish'],
+                   #['librmw_implementation.so', 'rmw_take_request', 'rmw_take_request'],
+                   #['librmw_implementation.so', 'rmw_take_with_info', 'rmw_take_with_info'],
+                   #['librmw_implementation.so', 'rmw_take$', 'rmw_take'],
+                   #['/home/arshad/mapped/projects/kinova_arm/robot_ws/build/gazebo_ros2_control/libgazebo_ros2_control.so',  'GazeboRosControlPrivate::Update', 'control_update'],
+                 ]
+        '''
+
+        fp = open("probes.txt", "r")
+        probes = csv.reader(fp, skipinitialspace=True, delimiter=",")        
+        subprocess.getoutput("sudo perf probe -d '*'")
+        for probe in probes:
+                if len(probe) == 0 or len(probe) != 3:
+                        continue
+                if probe[0].startswith('/'):
+                        library_path = probe[0]
+                else:
+                        lib_path_cmd = "cat /proc/$(pgrep " + process + ")/maps | grep " + probe[0] + " | tr -s ' ' | cut -d ' ' -f 6 | sort | uniq"
+                        print(f'Executing command {lib_path_cmd}')
+                        library_path = subprocess.getoutput(lib_path_cmd)
+                
+                address_cmd =  "objdump -T " + library_path + " | c++filt | grep '" \
+                + probe[1] + "' | cut -d ' ' -f 1"
+                address_output = subprocess.getoutput(address_cmd)
+                probe_cmd = "sudo perf probe -x " + library_path + " -f -a " + probe[2] + "_entry=0x" + address_output
+                perf_output = subprocess.getoutput(probe_cmd)
+                probe_return_cmd = "sudo perf probe -x " + library_path + " -f -a " + probe[2] + "=0x" + address_output + "%return"
+                perf_output = subprocess.getoutput(probe_return_cmd)
+        
+       
+if __name__ == '__main__':
+    main()
