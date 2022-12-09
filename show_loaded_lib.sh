@@ -3,4 +3,11 @@
 #   ./show_loaded_lib.sh  <process_name>> [namefilter]
 #   ./show_loaded_lib.sh  gzserver rcl
 
-cat /proc/$(pgrep $1)/maps | grep '\.so' | grep "$2" | tr -s ' ' | cut -d ' ' -f 6 | sort | uniq
+param1=$1
+pid=$1
+
+if  [ -z "${param1##*[!0-9]*}" ]; then
+        pid=$(pgrep $1)
+fi
+
+cat /proc/$pid/maps | grep '\.so' | grep "$2" | tr -s ' ' | cut -d ' ' -f 6 | sort | uniq
