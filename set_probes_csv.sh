@@ -48,18 +48,21 @@ do
     fi
 
     # NOTE: should change -T to -t for .so compiled with debug symbols on
-    address=$(objdump -T $library_path | c++filt | grep $symbol_filter | cut -d ' ' -f 1)
+    addresses=$(objdump -T $library_path | c++filt | grep $symbol_filter | cut -d ' ' -f 1)
     
-    if [ -z $address ]; then
+    if [ -z $addresses ]; then
         echo "Address not found"
         continue
     fi
-
-    address=0x$address
-    # Set entry probe    
-    sudo perf probe -x $library_path -f -a ${probe_name}_entry=$address
     
-    # Set exit/return probe
-    sudo perf probe -x $library_path -f -a ${probe_name}=$address%return
-
+    for address in $addresses
+    do
+    	address=0x$address
+    	echo $address
+    	# Set entry probe
+    	sudo perf probe -x $library_path -f -a ${probe_name}_entry=$address
+    
+    	# Set exit/return probe
+    	sudo perf probe -x $library_path -f -a ${probe_name}=$address%return
+    done
 done < probes.csv
