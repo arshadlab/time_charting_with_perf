@@ -10,6 +10,18 @@ capture_duration=8
 p_cmd=""
 ctf_cmd=""
 
+if [ ! -f "./ctf2ctf/build/ctf2ctf" ]; then
+     echo "ctf2ctf binary not found.  Building for the first run"
+     mkdir -p ./ctf2ctf/build
+     cmake -B ./ctf2ctf/build -S ./ctf2ctf/
+     make -j$(nproc) -C ./ctf2ctf/build
+fi
+
+if [ ! -d "./FlameGraph" ]; then
+     echo "Flame Graph not found.  Cloning"
+     git clone https://github.com/brendangregg/FlameGraph
+fi
+
 if ! [ -z "$1" ]; then
      target_pid=$1
 
@@ -34,8 +46,8 @@ echo "Recording completed"
 sudo chown $USER:$USER systrace.data
 sudo chown $USER:$USER instrace.data
 
-perf data -i systrace.data convert -v --to-ctf systrace_data
-perf data -i instrace.data convert -v --to-ctf instrace_data
+perf data -i systrace.data convert --to-ctf systrace_data
+perf data -i instrace.data convert --to-ctf instrace_data
 echo "CTF conversion completed"
 ./ctf2ctf/build/ctf2ctf ./systrace_data/ $ctf_cmd > systrace.json
 ./ctf2ctf/build/ctf2ctf ./instrace_data/ $ctf_cmd > instrace.json
@@ -51,3 +63,5 @@ if test -f ./FlameGraph/stackcollapse-perf.pl ; then
         perf script -i ./systrace.data  | ./FlameGraph/stackcollapse-perf.pl > flamegraph.perf-folded
         ./FlameGraph/flamegraph.pl flamegraph.perf-folded > flamegraph.svg
 fi
+
+echo "Capture completed.  Use web browser to open trace.html and flamegraph.svg files"

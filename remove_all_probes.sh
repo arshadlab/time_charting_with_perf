@@ -1,0 +1,1 @@
+sudo perf probe -d '*'
