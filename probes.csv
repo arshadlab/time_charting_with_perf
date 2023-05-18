@@ -11,14 +11,14 @@ librmw_implementation.so, rmw_take_with_info, rmw_take_with_info
 librmw_implementation.so, rmw_take$, rmw_take
 
 #, Gazebo native libraries
-libgazebo_physics.so.11.10.1, physics::World::Update(), gazebo_physics_update
-libgazebo_physics.so.11.10.1, gazebo::physics::Model::Update(), gazebo_model_update
-libgazebo_physics.so.11.10.1, physics::Entity::SetWorldPose(ignition, SetEntityWorldPose
-libgazebo_physics.so.11.10.1, ODEPhysics::UpdatePhysics, UpdateODEPyhsics
-libgazebo_physics.so.11.10.1, ODEPhysics::UpdateCollision, UpdateODECollision
-libgazebo_physics.so.11.10.1, ContactManager::PublishContacts, PublishContacts
-libgazebo_physics.so.11.10.1, physics::Link::Update(, UpdateLink
-libgazebo_physics.so.11.10.1, gazebo::physics::Joint::Update(), UpdateJoint
+libgazebo_physics.so, physics::World::Update(), gazebo_physics_update
+libgazebo_physics.so, gazebo::physics::Model::Update(), gazebo_model_update
+libgazebo_physics.so, physics::Entity::SetWorldPose(ignition, SetEntityWorldPose
+libgazebo_physics.so, ODEPhysics::UpdatePhysics, UpdateODEPyhsics
+libgazebo_physics.so, ODEPhysics::UpdateCollision, UpdateODECollision
+libgazebo_physics.so, ContactManager::PublishContacts, PublishContacts
+libgazebo_physics.so, physics::Link::Update(, UpdateLink
+libgazebo_physics.so, gazebo::physics::Joint::Update(), UpdateJoint
 
 #, Gazebo Plugins
 libgazebo_ros_init.so, GazeboRosInitPrivate::Publish, rosinit_publish_time
