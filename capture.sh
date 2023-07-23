@@ -36,8 +36,17 @@ fi
 
 echo "Capturing for $capture_duration seconds"
 
-sudo perf record $p_cmd -B --namespaces -m 2048 -r50  -e probe_*:* -o instrace.data -aR sleep $capture_duration &
-sudo perf record $p_cmd -B --namespaces -m 2048 -F 1000  -r50 -o systrace.data -g -aR sleep $capture_duration
+# Save running process list to a variable.  Use pid,comm,cmd for full command line
+processes=$(ps -ao pid,comm --sort=start_time)
+
+# Save the original standard output to file descriptor 3
+exec 3>&1
+exec 3>&1
+
+# Redirect output and errors to /dev/null, but keep standard output
+sudo perf record $p_cmd -B --namespaces -m 2048 -r50  -e probe_*:* -o instrace.data -aR sleep $capture_duration > /dev/null 2>&1 1>&3 &
+sudo perf record $p_cmd -B --namespaces -m 2048 -F 1000  -r50 -o systrace.data -g -aR sleep $capture_duration > /dev/null 2>&1 1>&3
+
 
 sleep 2
 
@@ -46,14 +55,19 @@ echo "Recording completed"
 sudo chown $USER:$USER systrace.data
 sudo chown $USER:$USER instrace.data
 
-perf data -i systrace.data convert --to-ctf systrace_data
-perf data -i instrace.data convert --to-ctf instrace_data
-echo "CTF conversion completed"
-./ctf2ctf/build/ctf2ctf ./systrace_data/ $ctf_cmd > systrace.json
-./ctf2ctf/build/ctf2ctf ./instrace_data/ $ctf_cmd > instrace.json
-echo "JSON conversion completed"
+(perf data -i systrace.data convert --to-ctf systrace_data ) > /dev/null 2>&1 1>&3
+(perf data -i instrace.data convert --to-ctf instrace_data ) > /dev/null 2>&1 1>&3
+
+# Close file descriptor 3
+exec 3>&-
+
+echo -e "CTF conversion completed"
+sh -c "./ctf2ctf/build/ctf2ctf ./systrace_data/ $ctf_cmd > systrace.json"
+sh -c "./ctf2ctf/build/ctf2ctf ./instrace_data/ $ctf_cmd > instrace.json"
+
+echo -e "JSON conversion completed"
 ./catapult/tracing/bin/trace2html ./systrace.json ./instrace.json --output trace.html --config full
-echo "HTML conversion completed"
+echo -e "HTML conversion completed"
 
 # Generate flamegraph if tools are present in current directory
 # git clone https://github.com/brendangregg/FlameGraph"
@@ -65,3 +79,5 @@ if test -f ./FlameGraph/stackcollapse-perf.pl ; then
 fi
 
 echo "Capture completed.  Use web browser to open trace.html and flamegraph.svg files"
+echo "Running Process:"
+echo "$processes"
