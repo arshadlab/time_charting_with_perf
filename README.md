@@ -1,4 +1,4 @@
-# A Deep Dive into Performance Analysis with Perf Tool for Gazebo, and ROS2 (BashfulProfiler)
+# Performance Analysis framework for Gazebo and ROS2 using Linux Perf tool (BashfulProfiler)
 Introducing BashfulProfiler: a powerful, non-intrusive, and highly adaptable bash-based performance analysis tool. Its core objective is to offer developers an easily customizable and comprehensive perspective on the performance traits of their Linux-based applications.
 
 The default probes bundled with the tool are specifically curated for the analysis of Gazebo simulations that involve ROS2, including interactions with Navigation2 and Moveit2 stacks. Here is what can be gleaned from the provided set of probes:
@@ -49,7 +49,7 @@ Flow Diagram:
 
 **Flamegraph Generation**: In addition to time charts, BashfulProfiler also provides Flamegraph visualizations for a more consolidated view of your program's performance.
 
-### Probe configuration file
+### Probe configuration file (probes.csv)
 ```
 #, Header: ".so name", "process name", "symbol filter", "probe name"
 #, ROS2 libraries
@@ -61,6 +61,14 @@ librcl.so, gzserver, rcl_take_request$, rcl_take_request
 librcl.so, gzserver, rcl_take$, rcl_take_topic_subscription
 ...
 ```
+
+The probes.csv is a comma-separated .csv file with four columns. The first column is designated for the .so/binary to be probed, and it can contain either just the name or the absolute path. If only the name is provided, the process name - which is the second entry - will be utilized to determine the absolute location of the .so. The process, presumably running with the .so file loaded, should be active prior to setting up probes. However, if an absolute path is provided, there's no requirement for the process name, and probe setup can be conducted at any time.
+
+The third column is designated for the symbol on which the probe is to be set. This symbol can be either fully named or partially named with a wildcard, following the Linux grep regular expression pattern. If multiple entries match, probes will be set up on all of them. The final column is for the probe name, which is usually the same as the symbol.
+
+The sample probes.csv for Gazebo performance analysis leverages symbols exported by .so. However, if the binary is compiled with the -g option, more precise probing is possible as a larger set of symbols will be accessible for selection.
+
+
 
 ## Getting Started
 ### Installation
