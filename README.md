@@ -1,4 +1,4 @@
-# Time Chart with Linux Perf tool (BashfulProfiler)
+# A Deep Dive into Performance Analysis with Perf Tool for Gazebo, and ROS2 (BashfulProfiler)
 Introducing BashfulProfiler: a powerful, non-intrusive, and highly adaptable bash-based performance analysis tool. Its core objective is to offer developers an easily customizable and comprehensive perspective on the performance traits of their Linux-based applications.
 
 The default probes bundled with the tool are specifically curated for the analysis of Gazebo simulations that involve ROS2, including interactions with Navigation2 and Moveit2 stacks. Here is what can be gleaned from the provided set of probes:
@@ -32,16 +32,14 @@ In essence, BashfulProfiler acts as a seamless conduit between applications and 
 ## Project Overview
 The tool's design is split into two main components: the front end, built entirely using bash scripting, and the backend, which relies on the Linux Kernel Perf tool, ctf2ctf, trace2html and flamegraph. Probes or traces are defined in a configuration file (for instance, probes.csv), which are then parsed and passed to the Perf tool to set up the probes. Once set, a capturing script proceeds to record these probes over a predetermined duration (such as 8 seconds). After the recording phase, the captured data is processed and transformed into easily understandable time charts and flamegraphs, offering clear insights for performance analysis.
 
-BashfulProfiler leverages the power of dynamic tracepoints to dissect application performance at the function level. It reads from a configurable list of .so files, injects tracepoints, and captures runtime performance data. This captured information is then processed and visualized, providing insights into where your application spends its time, down to the level of individual function calls.
-
 Flow Diagram:
 
 ![image](https://github.com/arshadlab/time_charting_with_perf/assets/85929438/71ae12ec-4c0f-4655-aa5d-9f2c97ef1220)
 
 
 
-## Features
-**Dynamic Tracepoint Injection**: No need to modify your source code, simply provide the shared libraries and functions of interest, and BashfulProfiler will handle the rest.
+### Features
+**Dynamic Tracepoint Injection**: No need to modify  source code, simply provide the shared libraries and functions of interest, and BashfulProfiler will handle the rest.
 
 **Robust Data Collection** The tool captures comprehensive data from the tracepoints, such as execution start and stop timestamps, to provide a detailed timeline of function execution.
 
@@ -51,10 +49,121 @@ Flow Diagram:
 
 **Flamegraph Generation**: In addition to time charts, BashfulProfiler also provides Flamegraph visualizations for a more consolidated view of your program's performance.
 
-## Use Case
-To demonstrate the power and versatility of BashfulProfiler, I have included an example case study: a performance analysis of a Gazebo simulation run. This example captures the updates and sub-function calls within the Gazebo simulation over time, demonstrating the detailed insights BashfulProfiler can provide.
+### Probe configuration file
+```
+#, Header: ".so name", "process name", "symbol filter", "probe name"
+#, ROS2 libraries
+#, set_probes_csv.sh will look into the given process to find library path from loaded .so files
+#, If absolute path is given then process name is ignored.
+
+/opt/ros/humble/lib/librcl.so, , rcl_publish$, rclpublish
+librcl.so, gzserver, rcl_take_request$, rcl_take_request
+librcl.so, gzserver, rcl_take$, rcl_take_topic_subscription
+...
+```
 
 ## Getting Started
-Head over to our documentation section for detailed steps on how to configure and use BashfulProfiler. Don't forget to check out the example case study to get a feel for what the tool can do. If you have any questions, suggestions, or run into any issues, please don't hesitate to raise an issue or submit a pull request.
+### Installation
+#### Setup system with linux perf tool enabled
+
+The Linux Perf tool is a powerful utility for profiling and performance monitoring on Linux systems.  Here are brief steps to setup system with perf tool
+
+##### Install perf tool
+
+```
+sudo apt-get update && sudo apt-get upgrade -y
+sudo apt-get install linux-tools-common linux-tools-generic linux-tools-`uname -r`
+```
+
+Verify perf installation
+```
+perf --version
+sudo perf stat ls
+```
+Remember that the Perf tool requires certain permissions and capabilities, and it may not function correctly without them.  It requires kernel to be build with certain CONFIGs and requires sudo access to run commands.
+
+if above perf command doesn't work then most likely kernel is not build with required configs.  Please refer to existing manuals on how to rebuild kernel.  Make sure below configs are enabled in the .config file.
+
+```
+CONFIG_PERF_EVENTS=y
+CONFIG_FRAME_POINTER=y
+CONFIG_KALLSYMS=y
+CONFIG_TRACEPOINTS=y
+CONFIG_KPROBES=y
+CONFIG_KPROBE_EVENTS=y
+# user-level dynamic tracing:
+CONFIG_UPROBES=y
+CONFIG_UPROBE_EVENTS=y
+```
+
+
+##### Clone this repo
+
+```
+git clone https://github.com/arshadlab/time_charting_with_perf
+cd time_charting_with_perf
+
+# Build ctf2ctf module
+mkdir -p ./ctf2ctf/build
+cmake -B ./ctf2ctf/build -S ./ctf2ctf/
+make -j$(nproc) -C ./ctf2ctf/build
+
+# Clone flamegraph implementation
+git clone https://github.com/brendangregg/FlameGraph.git
+```
+
+##### Setup probes
+
+It's important to initiate Gazebo simulation or the target process before setting up the probes. This is because the probes, as defined in the probe.csv file, rely on identifying the gzserver process in order to determine the absolute locations of the .so files within your system. However, if  probe.csv file contains the full paths to the .so files, running the target process prior to setting up the probes is not necessary.
+```
+ros2 launch <package> <launch command>
+```
+
+Setup probes using set_probes_csv.sh script
+
+```
+./set_probes_csv.sh
+Setting probes on [/opt/ros/humble/lib/librcl.so] at symbol [ rcl_publish$]
+Address is 0x0
+Added new event:
+  probe_librcl:rclpublish_entry (on 0x0000000000021b40 in /opt/ros/humble/lib/librcl.so)
+
+You can now use it in all perf tools, such as:
+
+	perf record -e probe_librcl:rclpublish_entry -aR sleep 1
+
+Added new event:
+  probe_librcl:rclpublish__return (on 0x0000000000021b40%return in /opt/ros/humble/lib/librcl.so)
+
+You can now use it in all perf tools, such as:
+
+	perf record -e probe_librcl:rclpublish__return -aR sleep 1
+
+```
+
+
+Setting up probes is generally a one-time process, unless your system undergoes a reboot or the target binary is modified or updated. Once these probes are properly configured, you can conduct multiple capture sessions without needing to set them up again. Thus, the configuration persists across various capture sessions, offering you the flexibility to perform repeated analyses with ease.
+
+##### Start Capturing
+
+Initiating capture using capture.sh.  Make sure target process is running (e.g gazebo)
+```
+./capture.sh
+```
+trace.html and flamegraph.svg will be ready to be viewed in browser
+
+```
+$ <browser> ./trace.html ./flamegraph.svg
+```
+
+
+#### Remove Probes
+Once established, probes will remain created (but not active) until a system reboot or a change in the related binary file. It's important to note that these probes don't consume any CPU resources unless they're triggered by the perf record command. However, if you wish to eliminate the probes when they've served their purpose, it's highly recommended to do so. Here's the command you'll need for probe removal.
+```
+./remove_all_probes.sh
+```
+
+
+
 
 Happy performance hunting!
