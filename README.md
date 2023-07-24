@@ -1,4 +1,4 @@
-# Performance Analysis framework for Gazebo and ROS2 using Linux Perf tool (BashfulProfiler)
+# Bash Scripting Meets Performance Analysis: BashfulProfiler for Gazebo and ROS2
 Introducing BashfulProfiler: a powerful, non-intrusive, and highly adaptable bash-based performance analysis tool. Its core objective is to offer developers an easily customizable and comprehensive perspective on the performance traits of their Linux-based applications.
 
 The default probes bundled with the tool are specifically curated for the analysis of Gazebo simulations that involve ROS2, including interactions with Navigation2 and Moveit2 stacks. Here is what can be gleaned from the provided set of probes:
@@ -24,15 +24,17 @@ Simulation update breakup
 <img src="https://github.com/arshadlab/time_charting_with_perf/assets/85929438/6f2dfc90-86be-4092-96cb-2963c9ee4bdf" width="800" height="100">
 
 
-<img src="https://github.com/arshadlab/time_charting_with_perf/assets/85929438/ec6fb5e5-cd6b-470a-ae75-3efaf9ad2716" width="350" height="300"> <img src="https://github.com/arshadlab/time_charting_with_perf/assets/85929438/da9bdf97-1e1a-44c8-b5d3-002dbe68b6ef" width="350" height="300"> 
+<img src="https://github.com/arshadlab/time_charting_with_perf/assets/85929438/ec6fb5e5-cd6b-470a-ae75-3efaf9ad2716" width="350" height="300"> <img src="https://github.com/arshadlab/time_charting_with_perf/assets/85929438/da9bdf97-1e1a-44c8-b5d3-002dbe68b6ef" width="250" height="250"> <img src="https://github.com/arshadlab/time_charting_with_perf/assets/85929438/3b91487e-dd1b-4f0e-882a-bf768d7088d5" width="250" height="170"> 
+
+<img src="https://github.com/arshadlab/time_charting_with_perf/assets/85929438/2b6c62ce-8971-4426-889e-e91cd2c1e566" width="350" height="270">
 
 
-<img src="https://github.com/arshadlab/time_charting_with_perf/assets/85929438/2b6c62ce-8971-4426-889e-e91cd2c1e566" width="350" height="250">
 
 
 
 
 In essence, BashfulProfiler acts as a seamless conduit between applications and the Linux Perf tool, offering  a user-friendly and efficient way to gain insights into system's performance and take action where necessary.
+
 ## Overview
 The tool's design is split into two main components: the front end, built entirely using bash scripting, and the backend, which relies on the Linux Kernel Perf tool, ctf2ctf, trace2html and flamegraph. Probes or traces are defined in a configuration file (for instance, probes.csv), which are then parsed and passed to the Perf tool to set up the probes. Once set, a capturing script proceeds to record these probes over a predetermined duration (such as 8 seconds). After the recording phase, the captured data is processed and transformed into easily understandable time charts and flamegraphs, offering clear insights for performance analysis.
 
@@ -82,6 +84,8 @@ The Linux Perf tool is a powerful utility for profiling and performance monitori
 
 ##### Install perf tool
 
+Due to the necessity of perf, root access (for example, using sudo) is required.
+
 ```
 sudo apt-get update && sudo apt-get upgrade -y
 sudo apt-get install linux-tools-common linux-tools-generic linux-tools-`uname -r`
@@ -109,24 +113,17 @@ CONFIG_UPROBE_EVENTS=y
 ```
 
 
-##### Clone this repo
+##### Clone this repo and install dependencies
 
 ```
 git clone https://github.com/arshadlab/time_charting_with_perf
 cd time_charting_with_perf
-
-# Build ctf2ctf module
-mkdir -p ./ctf2ctf/build
-cmake -B ./ctf2ctf/build -S ./ctf2ctf/
-make -j$(nproc) -C ./ctf2ctf/build
-
-# Clone flamegraph implementation
-git clone https://github.com/brendangregg/FlameGraph.git
+./setup_dependency.sh 
 ```
 
 ##### Setup probes
 
-It's important to initiate Gazebo simulation or the target process before setting up the probes. This is because the probes, as defined in the probe.csv file, rely on identifying the gzserver process in order to determine the absolute locations of the .so files within your system. However, if  probe.csv file contains the full paths to the .so files, running the target process prior to setting up the probes is not necessary.
+It's important to initiate Gazebo or the target process before setting up the probes. This is because the probes, as defined in the probe.csv file, rely on running target process in order to determine the absolute locations of the .so files within the system. However, if  probe.csv file contains the full paths to the .so files, running the target process prior to setting up the probes is not necessary.
 ```
 ros2 launch <package> <launch command>
 ```
@@ -175,7 +172,8 @@ Once established, probes will remain created (but not active) until a system reb
 ./remove_all_probes.sh
 ```
 
-
+## Troubleshoot
+If there are an excessive number of trace samples, loading the .html file in the browser might become problematic. In such situations, you have two options: either reduce the number of trace probes or decrease the capture duration to reduce the overall size of the captured samples.
 
 
 Happy performance hunting!
