@@ -1,11 +1,28 @@
+#
+# Copyright 2023
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Desc: Script to set perf probes 
+# Author: Arshad Mehmood
+
 # This bash script reads probe requests from probe.csv and sets up entry and exit probe for request function
 # Caution: Script deletes all previous probes before proceeding. 
 # probe.csv fields: '.so name', 'symbol filter', 'probe name'   (without quotes)
 # Sample csv format:
 #   libgazebo_ros_init.so, GazeboRosInitPrivate::Publish, ros_init_pubtime
 #
-# default process name to gzserver (Gazebo)
-#    ./set_probes_csv.sh [processname|pid]
+#    ./set_probes_csv.sh
 #
 
 
@@ -31,7 +48,6 @@ do
 
     if ! [[ "$library_name" =~ ^/ ]]; then
     
-            # Either pid or process name given at command prompt
             if  [ $process_name ]; then
                 pid=$(pgrep -o $process_name)
                 if [ -z $pid ]; then
