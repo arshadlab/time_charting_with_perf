@@ -1,0 +1,33 @@
+diff --git a/ctf2ctf.cpp b/ctf2ctf.cpp
+index 1b6f8db..3da5c61 100644
+--- a/ctf2ctf.cpp
++++ b/ctf2ctf.cpp
+@@ -1390,7 +1390,7 @@ struct Event
+                 return 'B';
+             } else if (removeSuffix(name, "_exit") || rewriteName(name, "syscall_exit_", "syscall_", true)
+                        || rewriteName(name, "_end_", "_", false) || rewriteName(name, "_after_", "_", false)
+-                       || removePrefix(name, "end_")) {
++                       || removePrefix(name, "end_") || removeSuffix(name, "__return")) {
+                 return 'E';
+             } else {
+                 return 'i';
+@@ -1583,6 +1583,19 @@ struct Event
+             }
+         }
+ 
++        const struct bt_definition *vpid_field = bt_ctf_get_field(event, event_fields_scope, "perf_pid");
++        const struct bt_definition *vtid_field = bt_ctf_get_field(event, event_fields_scope, "perf_tid");
++        if (vpid_field)
++                pid = bt_ctf_get_int64(vpid_field);
++        if (vtid_field)
++                tid = bt_ctf_get_int64(vtid_field);
++
++        if ( startsWith(name, "probe:") || startsWith(name, "probe_")) {
++                auto colonPos = name.find(':');
++                if (colonPos != name.npos)
++                      name = name.substr(colonPos+1, name.npos);
++        }
++
+         if (category.empty()) {
+             auto colonPos = name.find(':');
+             if (colonPos != name.npos)

@@ -1,25 +1,29 @@
 #, Header: ".so name", "process name", "symbol filter", "probe name"
 #, ROS2 libraries
 #, set_probes_csv.sh will look into the given process to find library path from loaded .so files
+#, If absolute path is given then process name is ignored.
 
-librclcpp.so, gzserver, ::publish(std::unique_ptr<rcl, rclcpp_publish
-librcl.so, gzserver, rcl_publish$, rclpublish
-librcl.so, gzserver, rcl_take_request$, rcl_take_request
-librcl.so, gzserver, rcl_take$, rcl_take_topic_subscription
-librmw_implementation.so, gzserver, rmw_publish$, rmw_publish
-librmw_implementation.so, gzserver, rmw_take_request, rmw_take_request
-librmw_implementation.so, gzserver, rmw_take_with_info, rmw_take_with_info
-librmw_implementation.so, gzserver, rmw_take$, rmw_take
+/opt/ros/humble/lib/librcl.so, , rcl_publish$, rclpublish
+
+#, ### Disabling below due to too much traffic generating.
+#,librcl.so, gzserver, rcl_take$, rcl_take_topic_subscription
+#,librcl.so, gzserver, rcl_take_request$, rcl_take_request
+#,librmw_implementation.so, gzserver, rmw_publish$, rmw_publish
+#,librmw_implementation.so, gzserver, rmw_take_request, rmw_take_request
+#,librmw_implementation.so, gzserver, rmw_take_with_info, rmw_take_with_info
+#,librmw_implementation.so, gzserver, rmw_take$, rmw_take
 
 #, Gazebo native libraries
 libgazebo_physics.so, gzserver, physics::World::Update(), gazebo_physics_update
 libgazebo_physics.so, gzserver, gazebo::physics::Model::Update(), gazebo_model_update
-libgazebo_physics.so, gzserver, physics::Entity::SetWorldPose(ignition, SetEntityWorldPose
 libgazebo_physics.so, gzserver, ODEPhysics::UpdatePhysics, UpdateODEPyhsics
 libgazebo_physics.so, gzserver, ODEPhysics::UpdateCollision, UpdateODECollision
 libgazebo_physics.so, gzserver, ContactManager::PublishContacts, PublishContacts
-libgazebo_physics.so, gzserver, physics::Link::Update(, UpdateLink
 libgazebo_physics.so, gzserver, gazebo::physics::Joint::Update(), UpdateJoint
+
+#, ### Disabling below due to too much traffic generating.
+#,libgazebo_physics.so, gzserver, physics::Link::Update(, UpdateLink
+#,libgazebo_physics.so, gzserver, physics::Entity::SetWorldPose(ignition, SetEntityWorldPose
 
 #, Gazebo Plugins
 libgazebo_ros_init.so, gzserver, GazeboRosInitPrivate::Publish, rosinit_publish_time

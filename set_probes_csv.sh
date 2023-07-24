@@ -10,7 +10,8 @@
 
 
 #Delete all previous probes
-sudo perf probe -d '*'
+echo "Deleting existing probes"
+sudo perf probe -d '*' 
 
 
 while IFS=, read -r library_name process_name symbol_filter probe_name
@@ -25,18 +26,21 @@ do
         continue
     fi
 
-    # Either pid or process name given at command prompt
-    if  [ $process_name ]; then
-           pid=$(pgrep -o $process_name)
-           if [ -z $pid ]; then
-              continue
-           fi
-    fi
-
+  
     library_path=$library_name
 
     if ! [[ "$library_name" =~ ^/ ]]; then
-
+    
+            # Either pid or process name given at command prompt
+            if  [ $process_name ]; then
+                pid=$(pgrep -o $process_name)
+                if [ -z $pid ]; then
+                    echo "Process $process_name not running"
+                    continue
+                fi
+                echo "PID $pid will be used to locate library path for $library_name"
+            fi
+            
             # Find out library path from loaded list
             library_path=$(cat /proc/$pid/maps | grep  $library_name | tr -s ' ' | cut -d ' ' -f 6 | sort | uniq)
 
@@ -53,12 +57,14 @@ do
         echo "Address not found for lib $library_path and symbol $symbol_filter "
         continue
     fi
-
+    
+    echo "Setting probes on [$library_path] at symbol [$symbol_filter]"
+    
     for address in $addresses
     do
     	address=0x$address
         if [ $((address)) -eq 0 ] 2>/dev/null; then
-            echo "Address is zero"
+            echo "Address is 0x0"
             continue
         fi
 
