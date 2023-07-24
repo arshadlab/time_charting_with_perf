@@ -74,6 +74,8 @@ The third column is designated for the symbol on which the probe is to be set. T
 
 The sample probes.csv for Gazebo performance analysis leverages symbols exported by .so. However, if the binary is compiled with the -g option, more precise probing is possible as a larger set of symbols will be accessible for selection.
 
+Scripts are included in the repo to view loaded libraries and symbols exported by them.
+
 
 
 ## Getting Started
