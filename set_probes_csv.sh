@@ -1,4 +1,3 @@
-#
 # Copyright 2023
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,11 +24,20 @@
 #    ./set_probes_csv.sh
 #
 
+probe_file=$1
+
+if [ -z $1 ]
+then
+    echo "Using default probe file probes.csv"
+    probe_file="probes.csv"
+fi
 
 #Delete all previous probes
 echo "Deleting existing probes"
 sudo perf probe -d '*' 
 
+
+probe_file=$1
 
 while IFS=, read -r library_name process_name symbol_filter probe_name
 do
@@ -90,4 +98,4 @@ do
     	# Set exit/return probe
     	sudo perf probe -x $library_path -f -a ${probe_name}=$address%return
     done
-done < probes.csv
+done < "$probe_file"

@@ -16,8 +16,9 @@
 
 # This bash script captures perf events from already added probes
 # A process name or pid can be given to capture events for that process only. Otherwise system wide events are captured
-#    ./capture.sh [processname|pid]
-#
+#    ./capture.sh [duration] [processname|pid]
+#    ./capture.sh 8 gzserver
+#    ./capture.sh 4
 
 
 # Get duration value from command line. Else set default to 8
@@ -37,18 +38,19 @@ if [ ! -d "./FlameGraph" ]; then
      git clone https://github.com/brendangregg/FlameGraph
 fi
 
-# Single process capture logic disabled for now
-#if ! [ -z "$1" ]; then
-#     target_pid=$1
 
-#     # Either pid or process name given at command prompt
-#     if  [ -z "${target_pid##*[!0-9]*}" ]; then
-#         target_pid=$(pgrep $1)
-#     fi
+if ! [ -z "$2" ]; then
+     target_pid=$2
 
-#     p_cmd="-p $target_pid"
-#     ctf_cmd="--pid-whitelist=$target_pid"
-#fi
+     # Either pid or process name given at command prompt
+     if  [ -z "${target_pid##*[!0-9]*}" ]; then
+         target_pid=$(pgrep -o $2)
+         echo "Target process $2 with pid $target_pid"
+     fi
+
+     p_cmd="-p $target_pid"
+     ctf_cmd="--pid-whitelist=$target_pid"
+fi
 
 echo "Capturing for $capture_duration seconds"
 
