@@ -35,7 +35,8 @@ echo "$symbols" | while read -r address symbol
 do
       
         libname=$(basename $1)
-        libname=${libname%.*}
+        #libname=${libname%.*}
+        libname=${libname%%.so*}
 
         addr=0x$address
         echo $address, $symbol
@@ -43,6 +44,7 @@ do
         function_name=$(echo "$symbol" | sed 's/[(<].*//')
         function_name="${function_name##*::}"
         echo "Setting Probes for $symbol.  Function name $function_name"
+        echo "perf probe -x $1 -f -a  ${libname}_${function_name}_entry=$addr"
         # Set entry probe
         sudo perf probe -x $1 -f -a  ${libname}_${function_name}_entry=$addr
 

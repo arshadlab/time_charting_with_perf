@@ -64,7 +64,7 @@ rm -rf $OUTPUT_DIR/*
 
 
 # Redirect output and errors to /dev/null, but keep standard output
-sudo bash -c "perf record $p_cmd  -B --namespaces -m 2048 -r50  -e probe_*:* -o $OUTPUT_DIR/instrace.data -aR sleep $capture_duration > /dev/null 2>&1" &
+sudo bash -c "perf record $p_cmd  -B --namespaces -m 2048 -r50  -e probe*:* -o $OUTPUT_DIR/instrace.data -aR sleep $capture_duration > /dev/null 2>&1" &
 sudo bash -c "perf record $p_cmd  -B --namespaces -m 2048 -F 1000  -r50 -o $OUTPUT_DIR/systrace.data -g -aR sleep $capture_duration > /dev/null 2>&1"
 
 # Gnome Terminal gets messed up after record triggered in background mode using &
