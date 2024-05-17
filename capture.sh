@@ -62,7 +62,6 @@ OUTPUT_DIR=./output
 mkdir -p $OUTPUT_DIR
 rm -rf $OUTPUT_DIR/*
 
-
 # Redirect output and errors to /dev/null, but keep standard output
 sudo bash -c "perf record $p_cmd  -B --namespaces -m 2048 -r50  -e probe*:* -o $OUTPUT_DIR/instrace.data -aR sleep $capture_duration > /dev/null 2>&1" &
 sudo bash -c "perf record $p_cmd  -B --namespaces -m 2048 -F 1000  -r50 -o $OUTPUT_DIR/systrace.data -g -aR sleep $capture_duration > /dev/null 2>&1"
@@ -86,13 +85,8 @@ USER=$(whoami)
 sudo chown $USER:$USER $OUTPUT_DIR/systrace.data
 sudo chown $USER:$USER $OUTPUT_DIR/instrace.data
 
-perf data -i $OUTPUT_DIR/systrace.data convert --to-ctf $OUTPUT_DIR/systrace_data
-perf data -i $OUTPUT_DIR/instrace.data convert --to-ctf $OUTPUT_DIR/instrace_data
-
-
-echo "CTF conversion completed"
-sh -c "./ctf2ctf/build/ctf2ctf $OUTPUT_DIR/systrace_data/ $ctf_cmd > $OUTPUT_DIR/systrace.json"
-sh -c "./ctf2ctf/build/ctf2ctf $OUTPUT_DIR/instrace_data/ $ctf_cmd > $OUTPUT_DIR/instrace.json"
+perf data -i $OUTPUT_DIR/systrace.data convert --to-json $OUTPUT_DIR/systrace.json
+perf data -i $OUTPUT_DIR/instrace.data convert --to-json $OUTPUT_DIR/instrace.json
 
 echo "JSON conversion completed"
 ./catapult/tracing/bin/trace2html $OUTPUT_DIR/systrace.json $OUTPUT_DIR//instrace.json --output $OUTPUT_DIR/trace.html --config full
