@@ -62,6 +62,14 @@ OUTPUT_DIR=./output
 mkdir -p $OUTPUT_DIR
 rm -rf $OUTPUT_DIR/*
 
+# Create instrace.data and systrace.data files if not present
+if [ ! -f "$OUTPUT_DIR/instrace.data" ]; then
+    touch $OUTPUT_DIR/instrace.data
+fi
+if [ ! -f "$OUTPUT_DIR/systrace.data" ]; then
+    touch $OUTPUT_DIR/systrace.data
+fi
+
 # Redirect output and errors to /dev/null, but keep standard output
 sudo bash -c "perf record $p_cmd  -B --namespaces -m 2048 -r50  -e probe*:* -o $OUTPUT_DIR/instrace.data -aR sleep $capture_duration > /dev/null 2>&1" &
 sudo bash -c "perf record $p_cmd  -B --namespaces -m 2048 -F 1000  -r50 -o $OUTPUT_DIR/systrace.data -g -aR sleep $capture_duration > /dev/null 2>&1"
