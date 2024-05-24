@@ -1,0 +1,17 @@
+#, Header: ".so name", "process name", "symbol filter", "probe name"
+#, Openvino library with debug symbol included
+#, set_probes_csv.sh will look into the given process to find library path from loaded .so files
+#, If absolute path is given then process name is ignored.
+#, Below probes assume openvino gpu plugin is compiled with debug symbols included.
+
+/usr/libs/libopenvino_intel_gpu_plugin.so, ,ov::intel_gpu::SyncInferRequest::infer\(\)\s*$,infer_request
+/usr/libs/libopenvino_intel_gpu_plugin.so, ,ov::intel_gpu::SyncInferRequest::enqueue\(\)\s*$,enqueue
+/usr/libs/libopenvino_intel_gpu_plugin.so, ,ov::intel_gpu::SyncInferRequest::wait\(\)\s*$,wait
+/usr/libs/libopenvino_intel_gpu_plugin.so, ,\bcldnn::network::execute_impl\(.*\)$,execute_impl
+/usr/libs/libopenvino_intel_gpu_plugin.so, ,\bcldnn::network::execute_primitive\(.*\)$,execute_primitive
+/lib/modules/6.5.0-28-generic/kernel/drivers/gpu/drm/i915/i915.ko, ,\bi915_gem_do_execbuffer,i915_gem_do_execbuffer
+/lib/modules/6.5.0-28-generic/kernel/drivers/gpu/drm/i915/i915.ko, ,\bii915_gem_wait_ioctl,i915_gem_wait_ioctl
+/lib/modules/6.5.0-28-generic/kernel/drivers/gpu/drm/i915/i915.ko, ,\bi915_request_wait_timeout,i915_request_wait_timeout
+/lib/modules/6.5.0-28-generic/kernel/drivers/gpu/drm/i915/i915.ko, ,\bflush_submission,flush_submission
+
+

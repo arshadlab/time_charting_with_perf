@@ -64,6 +64,8 @@ rm -rf $OUTPUT_DIR/*
 
 
 # Redirect output and errors to /dev/null, but keep standard output
+
+# Add -e i915:* -e dma_fence:* or any other kernel probes to instrace if needed
 sudo bash -c "perf record $p_cmd  -B --namespaces -m 2048 -r50  -e probe*:* -o $OUTPUT_DIR/instrace.data -aR sleep $capture_duration > /dev/null 2>&1" &
 sudo bash -c "perf record $p_cmd  -B --namespaces -m 2048 -F 1000  -r50 -o $OUTPUT_DIR/systrace.data -g -aR sleep $capture_duration > /dev/null 2>&1"
 

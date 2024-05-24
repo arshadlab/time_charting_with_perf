@@ -20,8 +20,11 @@
 # probe.csv fields: '.so name', 'symbol filter', 'probe name'   (without quotes)
 # Sample csv format:
 #   libgazebo_ros_init.so, GazeboRosInitPrivate::Publish, ros_init_pubtime
+#   <path>/libopenvino_intel_gpu_plugin.so, ,ov::intel_gpu::SyncInferRequest::infer\(\)\s*$,infer_request
+#   <path>/libopenvino_intel_gpu_plugin.so, ,\bcldnn::network::execute_impl\(.*\)$,execute_impl
+#   <path>/i915.ko, ,\bi915_gem_do_execbuffer,i915_gem_do_execbuffer
 #
-#    ./set_probes_csv.sh
+#    ./set_probes_csv.sh probes.csv
 #
 
 probe_file=$1
@@ -51,7 +54,16 @@ do
         continue
     fi
 
-  
+    # Direct probe call for kernel modules.  no symbol search supported
+    if [[ "$library_name" == *.ko ]]; then
+        echo "perf probe -m $library_name -a ${probe_name}_entry=$probe_name"
+        sudo perf probe -m $library_name -a ${probe_name}_entry=$probe_name
+
+        # Set exit/return probe
+        sudo perf probe -m $library_name -a ${probe_name}=$probe_name%return
+        continue
+    fi
+
     library_path=$library_name
 
     if ! [[ "$library_name" =~ ^/ ]]; then
@@ -75,15 +87,15 @@ do
     fi
 
     # NOTE: should change -T to -t for .so compiled with debug symbols on
-    addresses=$(objdump -T $library_path | c++filt | grep $symbol_filter | cut -d ' ' -f 1)
+    addresses=$(objdump -t $library_path | c++filt | grep -E $symbol_filter | cut -d ' ' -f 1)
 
     if [ -z "$addresses" ]; then
         echo "Address not found for lib $library_path and symbol $symbol_filter "
         continue
     fi
-    
+
     echo "Setting probes on [$library_path] at symbol [$symbol_filter]"
-    
+
     for address in $addresses
     do
     	address=0x$address
@@ -92,10 +104,10 @@ do
             continue
         fi
 
-    	# Set entry probe
-    	sudo perf probe -x $library_path -f -a ${probe_name}_entry=$address
-    
-    	# Set exit/return probe
-    	sudo perf probe -x $library_path -f -a ${probe_name}=$address%return
+        # Set entry probe
+        sudo perf probe -x $library_path -f -a ${probe_name}_entry=$address
+
+        # Set exit/return probe
+        sudo perf probe -x $library_path -f -a ${probe_name}=$address%return
     done
 done < "$probe_file"
