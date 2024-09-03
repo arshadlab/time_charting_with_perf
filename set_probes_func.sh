@@ -4,7 +4,17 @@
 # ctags --c-kinds=f -x --fields=+n intel_display.c  | awk '{print $1}' > func.txt
 # Syntax:
 #   set_probes_func.sh <path to.ko/.so> func.txt
-
+# 
+# TIPS:
+# Capture probes
+# $ sudo perf record -e probe:* -a
+#
+# Get unique names of triggered functions 
+# $ sudo perf script |  sed 's/^[ \t]*//;s/[ \t]*$//' | tr -s ' '  | awk -F'[ ]' '{print $5}' | awk -F'[:]' '{print$2}' | sort | uniq > function.txt 
+ 
+# Get count of each function  
+# $ sudo perf script |  sed 's/^[ \t]*//;s/[ \t]*$//' | tr -s ' '  | awk -F'[ ]' '{print $5}' | awk -F'[:]' '{print$2}' | sort | uniq -c | sort -nr 
+ 
 # Check if sufficient arguments were provided
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <module_path> <function_list_file>"
