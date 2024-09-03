@@ -1,7 +1,7 @@
 #!/bin/bash
 # script to set probes in a lib using function list in text file.
-# Generate list of functions from .c file
-# ctags --c-kinds=f -x --fields=+n intel_display.c  | awk '{print $1}' > func.txt
+# Generate list of functions from .c files
+# ctags --c-kinds=f -x --fields=+n intel_display.c intel_dpll_mgr.c | awk '{print $1}' > func.txt
 # Syntax:
 #   set_probes_func.sh <path to.ko/.so> func.txt
 # 
