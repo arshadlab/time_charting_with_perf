@@ -7,7 +7,7 @@
 # 
 # TIPS:
 # Capture probes
-# $ sudo perf record -e probe:* -a
+# $ sudo perf record -e probe:* -g -a
 #
 # Get unique names of triggered functions 
 # $ sudo perf script |  sed 's/^[ \t]*//;s/[ \t]*$//' | tr -s ' '  | awk -F'[ ]' '{print $5}' | awk -F'[:]' '{print$2}' | sort | uniq > function.txt 
