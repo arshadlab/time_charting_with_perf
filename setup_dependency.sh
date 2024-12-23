@@ -1,3 +1,4 @@
+# Tested with python 3.10 & 3.12
 # Install babel trace
 sudo apt-get install libbabeltrace-dev
 
@@ -14,6 +15,12 @@ cd ..
 
 # Clone trace2html tool
 git clone --depth 1 https://chromium.googlesource.com/catapult
+
+# Delete these two packages and install them via requirements.txt.  This due to incompatibility with python 3.12
+rm -rf ./catapult/third_party/six
+rm -rf ./catapult/third_party/beautifulsoup4
+
+pip install -r requirements.txt
 
 # Clone flamegraph implementation
 git clone --depth 1 https://github.com/brendangregg/FlameGraph.git

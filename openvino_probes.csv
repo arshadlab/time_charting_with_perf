@@ -1,17 +1,30 @@
-#, Header: ".so name", "process name", "symbol filter", "probe name"
+#, Header: ".so name","process name","symbol filter","probe name"
+#, No space before and after commas
 #, Openvino library with debug symbol included
 #, set_probes_csv.sh will look into the given process to find library path from loaded .so files
 #, If absolute path is given then process name is ignored.
-#, Below probes assume openvino gpu plugin is compiled with debug symbols included.
+#, Below probes assume openvino plugins are compiled with debug symbols included (e.g -g).
 
-/usr/libs/libopenvino_intel_gpu_plugin.so, ,ov::intel_gpu::SyncInferRequest::infer\(\)\s*$,infer_request
-/usr/libs/libopenvino_intel_gpu_plugin.so, ,ov::intel_gpu::SyncInferRequest::enqueue\(\)\s*$,enqueue
-/usr/libs/libopenvino_intel_gpu_plugin.so, ,ov::intel_gpu::SyncInferRequest::wait\(\)\s*$,wait
-/usr/libs/libopenvino_intel_gpu_plugin.so, ,\bcldnn::network::execute_impl\(.*\)$,execute_impl
-/usr/libs/libopenvino_intel_gpu_plugin.so, ,\bcldnn::network::execute_primitive\(.*\)$,execute_primitive
-/lib/modules/6.5.0-28-generic/kernel/drivers/gpu/drm/i915/i915.ko, ,\bi915_gem_do_execbuffer,i915_gem_do_execbuffer
-/lib/modules/6.5.0-28-generic/kernel/drivers/gpu/drm/i915/i915.ko, ,\bii915_gem_wait_ioctl,i915_gem_wait_ioctl
-/lib/modules/6.5.0-28-generic/kernel/drivers/gpu/drm/i915/i915.ko, ,\bi915_request_wait_timeout,i915_request_wait_timeout
-/lib/modules/6.5.0-28-generic/kernel/drivers/gpu/drm/i915/i915.ko, ,\bflush_submission,flush_submission
+# GPU
+libopenvino_intel_gpu_plugin.so,benchmark_app,\bov::intel_gpu::SyncInferRequest::infer\(\)\s*$,gpu_infer_request
+libopenvino_intel_gpu_plugin.so,,\bov::intel_gpu::Plugin::compile_model\(.*\),gpu_compile_model
+libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::enqueue\(\)\s*$,gpu_infer_enqueue
+libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::wait\(\)\s*$,gpu_infer_wait
+libopenvino_intel_gpu_plugin.so,,\bcldnn::network::execute_impl\(.*\)$,cldnn_execute_impl
+libopenvino_intel_gpu_plugin.so,,\bcldnn::ocl::ocl_stream::flush\(\)\sconst$,cldnn_flush
+libopenvino_intel_gpu_plugin.so,,\bcldnn::ocl::typed_primitive_impl_ocl<.*>::execute_impl,cldnn_execute_impl
+libopenvino_intel_gpu_plugin.so,,\bcldnn::onednn::typed_primitive_onednn_impl<.*>::build_primitive,onednn_build_primitive
+libopenvino_intel_gpu_plugin.so,,\bcldnn::onednn::typed_primitive_onednn_impl<.*>::execute_impl,onednn_execute_impl
+libopenvino_auto_batch_plugin.so,,\bov::autobatch_plugin::Plugin::compile_model\(.*\),auto_batch_compile_model
 
+
+# CPU
+libopenvino_intel_cpu_plugin.so,benchmark_app,\bov::intel_cpu::SyncInferRequest::infer\(\)\s*$, cpu_infer_request
+libopenvino_intel_cpu_plugin.so,,\bov::intel_cpu::Plugin::compile_model\(.*\), cpu_compile_model
+
+# Kernel mode driver.  i915.ko
+i915.ko, ,\bi915_gem_do_execbuffer,i915_gem_do_execbuffer
+i915.ko, ,\bii915_gem_wait_ioctl,i915_gem_wait_ioctl
+i915.ko, ,\bi915_request_wait_timeout,i915_request_wait_timeout
+i915.ko, ,\bflush_submission,flush_submission
 
