@@ -62,6 +62,13 @@ OUTPUT_DIR=./output
 mkdir -p $OUTPUT_DIR
 rm -rf $OUTPUT_DIR/*
 
+# Create instrace.data and systrace.data files if not present
+if [ ! -f "$OUTPUT_DIR/instrace.data" ]; then
+    touch $OUTPUT_DIR/instrace.data
+fi
+if [ ! -f "$OUTPUT_DIR/systrace.data" ]; then
+    touch $OUTPUT_DIR/systrace.data
+fi
 
 # Redirect output and errors to /dev/null, but keep standard output
 
@@ -88,13 +95,8 @@ USER=$(whoami)
 sudo chown $USER:$USER $OUTPUT_DIR/systrace.data
 sudo chown $USER:$USER $OUTPUT_DIR/instrace.data
 
-perf data -i $OUTPUT_DIR/systrace.data convert --to-ctf $OUTPUT_DIR/systrace_data
-perf data -i $OUTPUT_DIR/instrace.data convert --to-ctf $OUTPUT_DIR/instrace_data
-
-
-echo "CTF conversion completed"
-sh -c "./ctf2ctf/build/ctf2ctf $OUTPUT_DIR/systrace_data/ $ctf_cmd > $OUTPUT_DIR/systrace.json"
-sh -c "./ctf2ctf/build/ctf2ctf $OUTPUT_DIR/instrace_data/ $ctf_cmd > $OUTPUT_DIR/instrace.json"
+perf data -i $OUTPUT_DIR/systrace.data convert --to-json $OUTPUT_DIR/systrace.json
+perf data -i $OUTPUT_DIR/instrace.data convert --to-json $OUTPUT_DIR/instrace.json
 
 echo "JSON conversion completed"
 ./catapult/tracing/bin/trace2html $OUTPUT_DIR/systrace.json $OUTPUT_DIR//instrace.json --output $OUTPUT_DIR/trace.html --config full
