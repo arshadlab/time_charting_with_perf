@@ -1,7 +1,97 @@
-# Bash Scripting Meets Performance Analysis: BashfulProfiler for Gazebo and ROS2
-Introducing BashfulProfiler: a powerful, non-intrusive, and highly adaptable bash-based performance analysis tool. Its core objective is to offer developers an easily customizable and comprehensive perspective on the performance traits of their Linux-based applications.
+# Bash Scripting Meets Performance Analysis:
+## BashfulProfiler for Linux application and Kernel
 
-The default probes bundled with the tool are specifically curated for the analysis of Gazebo simulations that involve ROS2, including interactions with Navigation2 and Moveit2 stacks. Here is what can be gleaned from the provided set of probes:
+Introducing BashfulProfiler: a robust, non-intrusive, and highly adaptable bash-based performance analysis tool. Its main goal is to provide developers with flexible and detailed insights into the performance characteristics of their Linux-based applications. All you need is Linux perf tool support on your system and, preferably, symbol-built (e.g., -g) target binaries, whether executables or dynamic libraries.
+
+## Overview
+The tool's design is split into two main components: the front end, built entirely using bash scripting, and the backend, which relies on the Linux Kernel Perf tool, ctf2ctf, trace2html and flamegraph. Probes or traces are defined in a configuration file (for instance, probes.csv), which are then parsed and passed to the Perf tool to set up the probes. Once set, a capturing script proceeds to record these probes over a predetermined duration (such as 8 seconds). After the recording phase, the captured data is processed and transformed into easily understandable time charts and flamegraphs, offering clear insights for performance analysis.  The probe setting is done once for that boot session however capture can be done multiple times depending on run configuratins and needs.
+
+Flow Diagram:
+
+![image](https://github.com/arshadlab/time_charting_with_perf/assets/85929438/71ae12ec-4c0f-4655-aa5d-9f2c97ef1220)
+
+
+
+### Features
+**Dynamic Tracepoint Injection**: No need to modify  source code, simply provide the shared libraries and functions of interest, and BashfulProfiler will handle the rest.
+
+**Robust Data Collection** The tool captures comprehensive data from the tracepoints, such as execution start and stop timestamps, to provide a detailed timeline of function execution.
+
+**Data Processing** The raw trace data is processed through perf convert and ctf2ctf to convert it into a more readable and analyzable format.
+
+**Interactive Performance Charts** The processed trace data is then fed into trace2html to create interactive performance time charts. The time chart visualizes how your application's functions interact over time, helping you spot potential bottlenecks or inefficiencies.
+
+**Flamegraph Generation**: In addition to time charts, BashfulProfiler also provides Flamegraph visualizations for a more consolidated view of your program's performance.
+
+### Probe configuration file (probes.csv)
+```
+#, Header: ".so name", "process name", "symbol filter", "probe name"
+#, ROS2 libraries
+#, set_probes_csv.sh will look into the given process to find library path from loaded .so files
+#, If absolute path is given then process name is ignored.
+
+/opt/ros/humble/lib/librcl.so,,rcl_publish$,rclpublish
+librcl.so,gzserver,rcl_take_request$,rcl_take_request
+librcl.so,gzserver,rcl_take$,rcl_take_topic_subscription
+...
+```
+
+The probes.csv is a comma-separated .csv file with four columns and no spaces around commas. The first column is designated for the .so/binary to be probed, and it can contain either just the name or the absolute path. If only the name is provided, the process name - which is the second entry - will be utilized to determine the absolute location of the .so. The process, presumably running with the .so file loaded, should be active prior to setting up probes. However, if an absolute path is provided, there's no requirement for the process name, and probe setup can be conducted at any time.
+
+The third column is designated for the symbol on which the probe is to be set. This symbol can be either fully named or partially named with a wildcard, following the Linux grep regular expression pattern. If multiple entries match, probes will be set up on all of them. The final column is for the probe name, which is usually the same as the symbol.
+
+The process name is required for the first row without path, and all subsequent rows use the same name for finding the .so path. Also if multiple symbols match the regular expression, the probe name is appended with the symbol address to ensure uniqueness and facilitate tracking. Additionally, the complete symbol line output by objdump is displayed in the script, which helps relate the captured probe to the exact symbol signature.
+
+The sample probes.csv for Gazebo performance analysis leverages symbols exported by .so. However, if the binary is compiled with the -g option, more precise probing is possible as a larger set of symbols will be accessible for selection.
+
+Scripts are included in the repo to view loaded libraries and symbols exported by them.
+
+## Sample probes for OpenVino Run:
+Here is a sample probe CSV file designed to set trace points at key locations, including the entry points when a model is compiled and then sent for inference. At this stage, primitives are assembled into GPU kernels, and following a flush, the call waits for the GPU to complete execution. Having all this information visually presented at the forefront provides a holistic view of how the framework internally handles requests and the time spent at each stage. The included probes offer a comprehensive picture, though users can add more probes as needed. Note: The probes below require OpenVino to be built from source with the RelWithDebugInfo option.
+
+Sample probe file for OpenVino analysis:
+```
+#, Header: ".so name","process name","symbol filter","probe name"
+#, No space before and after commas
+#, Openvino library with debug symbol included
+#, set_probes_csv.sh will look into the given process to find library path from loaded .so files
+#, If absolute path is given then process name is ignored.
+#, Below probes assume openvino plugins are compiled with debug symbols included (e.g -g).
+
+# GPU
+libopenvino_intel_gpu_plugin.so,benchmark_app,\bov::intel_gpu::SyncInferRequest::infer\(\)\s*$,gpu_infer_request
+libopenvino_intel_gpu_plugin.so,,\bov::intel_gpu::Plugin::compile_model\(.*\),gpu_compile_model
+libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::enqueue\(\)\s*$,gpu_infer_enqueue
+libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::wait\(\)\s*$,gpu_infer_wait
+libopenvino_intel_gpu_plugin.so,,\bcldnn::network::execute_impl\(.*\)$,cldnn_execute_impl
+libopenvino_intel_gpu_plugin.so,,\bcldnn::ocl::ocl_stream::flush\(\)\sconst$,cldnn_flush
+libopenvino_intel_gpu_plugin.so,,\bcldnn::ocl::typed_primitive_impl_ocl<.*>::execute_impl,cldnn_execute_impl
+libopenvino_intel_gpu_plugin.so,,\bcldnn::onednn::typed_primitive_onednn_impl<.*>::build_primitive,onednn_build_primitive
+libopenvino_intel_gpu_plugin.so,,\bcldnn::onednn::typed_primitive_onednn_impl<.*>::execute_impl,onednn_execute_impl
+libopenvino_auto_batch_plugin.so,,\bov::autobatch_plugin::Plugin::compile_model\(.*\),auto_batch_compile_model
+
+# CPU
+libopenvino_intel_cpu_plugin.so,benchmark_app,\bov::intel_cpu::SyncInferRequest::infer\(\)\s*$, cpu_infer_request
+libopenvino_intel_cpu_plugin.so,,\bov::intel_cpu::Plugin::compile_model\(.*\), cpu_compile_model
+
+# Kernel mode driver.  i915.ko
+i915.ko, ,\bi915_gem_do_execbuffer,i915_gem_do_execbuffer
+i915.ko, ,\bii915_gem_wait_ioctl,i915_gem_wait_ioctl
+i915.ko, ,\bi915_request_wait_timeout,i915_request_wait_timeout
+i915.ko, ,\bflush_submission,flush_submission
+
+```
+
+
+To further explain regex expressions, the pattern **\bov::intel_gpu::Plugin::compile_model\(.*\)** for the compile_model probe is designed to match lines in text where the compile_model() method of the Plugin class in the ov::intel_gpu namespace is invoked. It captures any arguments it might take (e.g., .*), and ensures it starts at a word boundary (\b) to prevent partial matches. Additionally, the $ character in some probes ensures that matching occurs only for those symbols where there is no extra word or character at the end.
+
+
+![image](https://github.com/user-attachments/assets/243aef33-3058-4049-9750-e23697ad6185)
+
+
+## Analyzing Gazebo ROS2:
+
+The default probes included with the tool are selected for analyzing Gazebo simulations that involve ROS2, including interactions with the Navigation2 and Moveit2 stacks. Here’s what you can learn from the provided set of probes:
 
 **Time chart of key events in Gazebo and ROS2:** Visualize the timeline of critical events, helping to understand system's operation and identify potential performance issues.
 
@@ -29,53 +119,7 @@ Simulation update breakup
 <img src="https://github.com/arshadlab/time_charting_with_perf/assets/85929438/2b6c62ce-8971-4426-889e-e91cd2c1e566" width="350" height="270">
 
 
-
-
-
-
-In essence, BashfulProfiler acts as a seamless conduit between applications and the Linux Perf tool, offering  a user-friendly and efficient way to gain insights into system's performance and take action where necessary.
-
-## Overview
-The tool's design is split into two main components: the front end, built entirely using bash scripting, and the backend, which relies on the Linux Kernel Perf tool, ctf2ctf, trace2html and flamegraph. Probes or traces are defined in a configuration file (for instance, probes.csv), which are then parsed and passed to the Perf tool to set up the probes. Once set, a capturing script proceeds to record these probes over a predetermined duration (such as 8 seconds). After the recording phase, the captured data is processed and transformed into easily understandable time charts and flamegraphs, offering clear insights for performance analysis.
-
-Flow Diagram:
-
-![image](https://github.com/arshadlab/time_charting_with_perf/assets/85929438/71ae12ec-4c0f-4655-aa5d-9f2c97ef1220)
-
-
-
-### Features
-**Dynamic Tracepoint Injection**: No need to modify  source code, simply provide the shared libraries and functions of interest, and BashfulProfiler will handle the rest.
-
-**Robust Data Collection** The tool captures comprehensive data from the tracepoints, such as execution start and stop timestamps, to provide a detailed timeline of function execution.
-
-**Data Processing** The raw trace data is processed through perf convert and ctf2ctf to convert it into a more readable and analyzable format.
-
-**Interactive Performance Charts** The processed trace data is then fed into trace2html to create interactive performance time charts. The time chart visualizes how your application's functions interact over time, helping you spot potential bottlenecks or inefficiencies.
-
-**Flamegraph Generation**: In addition to time charts, BashfulProfiler also provides Flamegraph visualizations for a more consolidated view of your program's performance.
-
-### Probe configuration file (probes.csv)
-```
-#, Header: ".so name", "process name", "symbol filter", "probe name"
-#, ROS2 libraries
-#, set_probes_csv.sh will look into the given process to find library path from loaded .so files
-#, If absolute path is given then process name is ignored.
-
-/opt/ros/humble/lib/librcl.so, , rcl_publish$, rclpublish
-librcl.so, gzserver, rcl_take_request$, rcl_take_request
-librcl.so, gzserver, rcl_take$, rcl_take_topic_subscription
-...
-```
-
-The probes.csv is a comma-separated .csv file with four columns. The first column is designated for the .so/binary to be probed, and it can contain either just the name or the absolute path. If only the name is provided, the process name - which is the second entry - will be utilized to determine the absolute location of the .so. The process, presumably running with the .so file loaded, should be active prior to setting up probes. However, if an absolute path is provided, there's no requirement for the process name, and probe setup can be conducted at any time.
-
-The third column is designated for the symbol on which the probe is to be set. This symbol can be either fully named or partially named with a wildcard, following the Linux grep regular expression pattern. If multiple entries match, probes will be set up on all of them. The final column is for the probe name, which is usually the same as the symbol.
-
-The sample probes.csv for Gazebo performance analysis leverages symbols exported by .so. However, if the binary is compiled with the -g option, more precise probing is possible as a larger set of symbols will be accessible for selection.
-
-Scripts are included in the repo to view loaded libraries and symbols exported by them.
-
+BashfulProfiler acts as a seamless conduit between applications and the Linux Perf tool, offering  a user-friendly and efficient way to gain insights into system's performance and take action where necessary.
 
 
 ## Getting Started
@@ -157,7 +201,7 @@ Setting up probes is generally a one-time process, unless your system undergoes 
 
 ##### Start Capturing
 
-Initiating capture using capture.sh.  Make sure target process is running (e.g gazebo)
+Initiating capture using capture.sh.  Make sure target process is running (e.g gazebo).  Default capturing duration is 8 seconds
 ```
 ./capture.sh
 ```
@@ -177,5 +221,3 @@ Once established, probes will remain created (but not active) until a system reb
 ## Troubleshoot
 If there are an excessive number of trace samples, loading the .html file in the browser might become problematic. In such situations, you have two options: either reduce the number of trace probes or decrease the capture duration to reduce the overall size of the captured samples.
 
-
-Happy performance hunting!
