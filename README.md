@@ -199,6 +199,23 @@ You can now use it in all perf tools, such as:
 
 Setting up probes is generally a one-time process, unless your system undergoes a reboot or the target binary is modified or updated. Once these probes are properly configured, you can conduct multiple capture sessions without needing to set them up again. Thus, the configuration persists across various capture sessions, offering you the flexibility to perform repeated analyses with ease.
 
+#### Using objdump to find probe points
+Probe points should be added directly to the CSV, either from source code files or, if you're unsure about the final syntax, by using the objdump tool. Here is an example of how to use objdump to discover and create a regular expression for matching symbols. Keep modifying the expression until the desired symbols start to match. The example below is for the ocl primitive type.  Start trying with basic name first and then narrowing down further until desired set of symbols are matching.  
+
+```
+$ objdump -t runtime/lib/intel64/libopenvino_intel_gpu_plugin.so | c++filt | grep -E "\bcldnn::ocl::typed_primitive_impl_ocl<.*>" 
+
+0000000000b4b430 l     F .text	000000000000046a              std::unique_ptr<cldnn::primitive_impl, std::default_delete<cldnn::primitive_impl> > cldnn::ocl::typed_primitive_impl_ocl<c
+ldnn::convolution>::create<cldnn::ocl::convolution_impl>(cldnn::typed_program_node<cldnn::convolution> const&, cldnn::kernel_impl_params const&) [clone .isra.0]
+0000000000212afd l     F .text	00000000000000f4              std::unique_ptr<cldnn::primitive_impl, std::default_delete<cldnn::primitive_impl> > cldnn::ocl::typed_primitive_impl_ocl<c
+ldnn::convolution>::create<cldnn::ocl::convolution_impl>(cldnn::typed_program_node<cldnn::convolution> const&, cldnn::kernel_impl_params const&) [clone .isra.0] [clone .cold]
+0000000000b52300 l     F .text	000000000000047a              std::unique_ptr<cldnn::primitive_impl, std::default_delete<cldnn::primitive_impl> > cldnn::ocl::typed_primitive_impl_ocl<c
+ldnn::detection_output>::create<cldnn::ocl::detection_output_impl>(cldnn::typed_program_node<cldnn::detection_output> const&, cldnn::kernel_impl_params const&) [clone .isra.0]
+0000000000212d2d l     F .text	0000000000000103              std::unique_ptr<cldnn::primitive_impl, std::default_delete<cldnn::primitive_impl> > cldnn::ocl::typed_primitive_impl_ocl<c
+ldnn::detection_output>::create<cldnn::ocl::detection_output_impl>(cldnn::typed_program_node<cldnn::detection_output> const&, cldnn::kernel_impl_params const&) [clone .isra.0] [clone .
+c
+```
+
 ##### Start Capturing
 
 Initiating capture using capture.sh.  Make sure target process is running (e.g gazebo).  Default capturing duration is 8 seconds
