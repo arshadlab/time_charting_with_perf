@@ -55,15 +55,11 @@ previous_process_name=""
 
 while IFS=, read -r library_name process_name symbol_filter probe_name
 do
-    # Skip empty lines
-    if [ -z "$library_name" ]; then
+    # Skip empty and commented rows
+    if [ -z "$library_name" ] || [[ "$library_name" =~ ^# ]]; then
         continue
     fi
 
-    # Skip comments row
-    if [[ $library_name =~ ^# ]]; then
-        continue
-    fi
 
     # Direct probe call for kernel modules.  no symbol search supported
     if [[ "$library_name" == *.ko ]]; then
@@ -103,56 +99,59 @@ do
             echo "PID $pid ($process_name) will be used to locate library path for $library_name"
 
             # Find out library path from loaded list
-            library_path=$(cat /proc/$pid/maps | grep  $library_name | tr -s ' ' | cut -d ' ' -f 6 | sort | uniq)
+            library_path=$(cat /proc/$pid/maps | grep  "$library_name" | tr -s ' ' | cut -d ' ' -f 6 | sort | uniq)
 
-            if [ -z $library_path ]; then
+            if [ -z "$library_path" ]; then
                 echo "Library $library_name not found"
                 continue
             fi
     fi
 
-    # NOTE: should change -T to -t for .so compiled with debug symbols on
-    addresses=$(objdump -t $library_path | c++filt | grep -E $symbol_filter | cut -d ' ' -f 1)
+    # Retrieve and display objdump output with addresses and full line information
+    full_lines=$(objdump -t "$library_path" | c++filt | grep -E "$symbol_filter")
 
-    # If no addresses found, try with -T
-    if [ -z "$addresses" ]; then
+    # Check if no lines found, then try with -T
+    if [ -z "$full_lines" ]; then
         echo "Trying with -T for better visibility on $library_path and symbol $symbol_filter"
-        addresses=$(objdump -T $library_path | c++filt | grep -E $symbol_filter | cut -d ' ' -f 1)
+        full_lines=$(objdump -T "$library_path" | c++filt | grep -E "$symbol_filter")
     fi
 
-    if [ -z "$addresses" ]; then
-        echo "Address not found for lib $library_path and symbol $symbol_filter "
+    if [ -z "$full_lines" ]; then
+        echo "Address not found for lib $library_path and symbol $symbol_filter"
         continue
     fi
 
+    # Convert full lines into an array to count them
+    readarray -t lines <<< "$full_lines"
+    num_addresses=${#lines[@]}
+
     echo "Setting probes on [$library_path] at symbol [$symbol_filter]"
+    while read -r line; do
+        address=$(echo "$line" | cut -d ' ' -f 1)
+        address="0x${address#0x}"
 
-    addresses_array=($addresses)
-    num_addresses=${#addresses_array[@]}
-
-    for address in "${addresses_array[@]}"
-    do
-    	address=0x$address
-        if [ $((address)) -eq 0 ] 2>/dev/null; then
-            echo "Address is 0x0"
+        if [ "$((address))" -eq 0 ] 2>/dev/null; then
+            echo "Address is 0x0, skipping invalid address."
             continue
         fi
 
+        echo "Full line: $line"
+        echo "Using address: $address"
+
+        # Determine unique probe names based on the address and count
         stripped_address=$(printf "%x" "$address")
-        # Determine if address should be appended due multiple entries for same symbol
-        if [ $num_addresses -gt 1 ]; then
-            entry_name="${probe_name}_0x${stripped_address}_entry"
-            exit_name="${probe_name}_0x${stripped_address}"
-        else
-            entry_name="${probe_name}_entry"
-            exit_name="${probe_name}"
-        fi
 
-        # Set entry probe
-        sudo perf probe -x $library_path -f -a "$entry_name=$address"
+	# Append the address to the probe name only if there are multiple addresses
+	if [ $num_addresses -gt 1 ]; then
+		entry_name="${probe_name}_0x${stripped_address}_entry"
+		exit_name="${probe_name}_0x${stripped_address}"
+	else
+		entry_name="${probe_name}_entry"
+		exit_name="${probe_name}"
+	fi
+        sudo perf probe -x "$library_path" -f -a "$entry_name=$address"
+        sudo perf probe -x "$library_path" -f -a "$exit_name=$address%return"
+    done <<< "$full_lines"
 
-        # Set exit/return probe
-        sudo perf probe -x $library_path -f -a "$exit_name=$address%return"
-
-    done
 done < "$probe_file"
+
