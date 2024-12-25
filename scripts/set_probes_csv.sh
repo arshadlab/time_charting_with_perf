@@ -50,16 +50,24 @@ then
 fi
 
 #Delete all previous probes
-echo "Deleting existing probes"
-sudo perf probe -d '*' 
+#echo "Deleting existing probes"
+#sudo perf probe -q -d '*'
 
 # Initialize previous_process_name outside the loop
 previous_process_name=""
+previous_library_name=""
 
 while IFS=, read -r library_name process_name symbol_filter probe_name
 do
+    # Use previous process_name if the current one is empty
+    if [ -z "$library_name" ] && [ -n "$previous_library_name" ]; then
+        library_name=$previous_library_name
+    elif [ -n "$library_name" ]; then
+        previous_library_name=$library_name  # Update previous_library_name
+    fi
+            
     # Skip empty and commented rows
-    if [ -z "$library_name" ] || [[ "$library_name" =~ ^# ]]; then
+    if [ -z "$previous_library_name" ] || [[ "$previous_library_name" =~ ^# ]]; then
         continue
     fi
 
@@ -73,12 +81,30 @@ do
             echo "Error: Could not find full path for kernel module $library_name"
             continue
         fi
+	
+	# Delete existing probe with same name (if any)
+	sudo perf probe -q -d ${probe_name}*
+	
+        entry_cmd="sudo perf probe -m $full_path -a ${probe_name}_entry=$probe_name"
 
-        echo "perf probe -m $full_path -a ${probe_name}_entry=$probe_name"
-        sudo perf probe -m $full_path -a ${probe_name}_entry=$probe_name
+        # Print and execute the entry command
+	echo "$entry_cmd"
+	eval "$entry_cmd"
+	
+	
+        #echo "perf probe -m $full_path -a ${probe_name}_entry=$probe_name"
+        #sudo perf probe -m $full_path -a ${probe_name}_entry=$probe_name
 
+
+	
+	exit_cmd="sudo perf probe -m $full_path -a ${probe_name}=$probe_name%return"
+
+	# Print and execute the entry command
+	echo "$exit_cmd"
+	eval "$exit_cmd"
+	
         # Set exit/return probe
-        sudo perf probe -m $full_path -a ${probe_name}=$probe_name%return
+        #sudo perf probe -m $full_path -a ${probe_name}=$probe_name%return
         continue
     fi
 
@@ -110,6 +136,11 @@ do
             fi
     fi
 
+    libname=$(basename $library_path)
+    libname=${libname%%.so*}
+    # Truncate to the first 10 characters
+    libname=${libname:0:10}
+        
     # Retrieve and display objdump output with addresses and full line information
     full_lines=$(objdump -t "$library_path" | c++filt | grep -E "$symbol_filter")
 
@@ -146,14 +177,28 @@ do
 
 	# Append the address to the probe name only if there are multiple addresses
 	if [ $num_addresses -gt 1 ]; then
-		entry_name="${probe_name}_0x${stripped_address}_entry"
-		exit_name="${probe_name}_0x${stripped_address}"
+		entry_name="${libname}_${probe_name}_0x${stripped_address}_entry"
+		exit_name="${libname}_${probe_name}_0x${stripped_address}"
 	else
-		entry_name="${probe_name}_entry"
-		exit_name="${probe_name}"
+		entry_name="${libname}_${probe_name}_entry"
+		exit_name="${libname}_${probe_name}"
 	fi
-        sudo perf probe -x "$library_path" -f -a "$entry_name=$address"
-        sudo perf probe -x "$library_path" -f -a "$exit_name=$address%return"
+
+	# Delete existing probe with same name (if any)
+	sudo perf probe -q -d ${libname}_${exit_name}*
+	
+        entry_cmd="sudo perf probe -x $library_path -f -a $entry_name=$address"
+
+        # Print and execute the entry command
+	echo "$entry_cmd"
+	eval "$entry_cmd"
+	
+	exit_cmd="sudo perf probe -x $library_path -f -a $exit_name=$address%return"
+
+	# Print and execute the exit command
+	echo "$exit_cmd"
+	eval "$exit_cmd"
+
     done <<< "$full_lines"
 
 done < "$probe_file"

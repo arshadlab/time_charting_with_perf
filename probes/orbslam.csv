@@ -2,9 +2,6 @@
 #, ROS2 libraries
 #, set_probes_csv.sh will look into the given process to find library path from loaded .so files
 #, If absolute path is given then process name is ignored.
-
 #, ### Disabling below due to too much traffic generating.
-
 libORB_SLAM3.so,slam,TrackRGBD,TrackRGBD
 libORB_SLAM3.so,slam,ExtractORB,ExtractORB
-

@@ -1,7 +1,7 @@
 # Bash Scripting Meets Performance Analysis:
 ## BashfulProfiler for Linux application and Kernel
 
-Introducing BashfulProfiler: a robust, non-intrusive, and highly adaptable bash-based performance analysis tool. Its main goal is to provide developers with flexible and detailed insights into the performance characteristics of their Linux-based applications. All you need is Linux perf tool support on your system and, preferably, symbol-built (e.g., -g) target binaries, whether executables or dynamic libraries.
+Introducing BashfulProfiler: a robust, non-intrusive, and highly adaptable bash-based performance analysis tool. Its main goal is to provide developers with flexible and detailed insights into the performance characteristics of their Linux-based applications. All you need is Linux perf tool support on your system and, preferably, symbol-built (e.g., -g) target binaries, whether executables or dynamic libraries.  This implementation has been tested on Ubuntu 2022 and 2024 with Python 3.10 or Python 3.12. Although it primarily involves bash scripts, the third-party tools used rely on Python.
 
 ## Overview
 The tool's design is split into two main components: the front end, built entirely using bash scripting, and the backend, which relies on the Linux Kernel Perf tool, ctf2ctf, trace2html and flamegraph. Probes or traces are defined in a configuration file (for instance, probes.csv), which are then parsed and passed to the Perf tool to set up the probes. Once set, a capturing script proceeds to record these probes over a predetermined duration (such as 8 seconds). After the recording phase, the captured data is processed and transformed into easily understandable time charts and flamegraphs, offering clear insights for performance analysis.  The probe setting is done once for that boot session however capture can be done multiple times depending on run configuratins and needs.
@@ -167,7 +167,7 @@ cd time_charting_with_perf
 ./setup_dependency.sh
 ```
 
-##### Setup probes
+##### Setup probes using csv
 
 It's important to initiate Gazebo or the target process before setting up the probes. This is because the probes, as defined in the probe.csv file, rely on running target process in order to determine the absolute locations of the .so files within the system. However, if  probe.csv file contains the full paths to the .so files, running the target process prior to setting up the probes is not necessary.
 ```
@@ -196,8 +196,15 @@ You can now use it in all perf tools, such as:
 
 ```
 
+##### Setup probes using lib
 
-Setting up probes is generally a one-time process, unless your system undergoes a reboot or the target binary is modified or updated. Once these probes are properly configured, you can conduct multiple capture sessions without needing to set them up again. Thus, the configuration persists across various capture sessions, offering you the flexibility to perform repeated analyses with ease.
+Probes can also be set directly on .so files. Use the set_probes_lib.sh script with an optional filter to set probes. If no filter is provided, probes will be added to all exported symbols. Initially, publicly available symbols will be searched (e.g., using -T), and if no symbol is found, debug symbols will be searched (e.g., using -t).
+
+```
+$ ./scripts/set_probes_lib.sh /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
+```
+
+Setting up probes is generally a one-time process, unless your system undergoes a reboot or the target binary is modified or updated.  New probes are appended to existing list and if the same probe is added again then it's overwritten.   Once these probes are properly configured, you can conduct multiple capture sessions without needing to set them up again. Thus, the configuration persists across various capture sessions, offering you the flexibility to perform repeated analyses with ease.
 
 ##### Start Capturing
 
@@ -221,3 +228,4 @@ Once established, probes will remain created (but not active) until a system reb
 ## Troubleshoot
 If there are an excessive number of trace samples, loading the .html file in the browser might become problematic. In such situations, you have two options: either reduce the number of trace probes or decrease the capture duration to reduce the overall size of the captured samples.
 
+Probe names have a length limit. If you encounter issues while setting probes, try reducing the length of the probe names in the .csv file.

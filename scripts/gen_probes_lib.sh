@@ -30,31 +30,15 @@ if [ -z $symbols ]
 then
  symbols=$(objdump -j .text -C -t $1 | grep -E "$2" | tr -s ' ' | cut -d ' ' -f 1,5)
 fi
-echo $symbols
+#echo $symbols
 
 echo "$symbols" | while read -r address symbol
 do
       
         libname=$(basename $1)
-        libname=${libname%%.so*}
-
-        addr=0x$address
-        echo $address, $symbol
-        #function_name=$(echo "$symbol" | sed -E 's/.*::([^<(]*).*/\1/')
-        function_name=$(echo "$symbol" | sed 's/[(<].*//')
-        function_name="${function_name##*::}"
-        
-        # Delete existing probe with same name (if any)
-	sudo perf probe -q -d ${libname}_${function_name}*
-	
-        echo "Setting Probes for $symbol.  Function name $function_name"
-        echo "perf probe -x $1 -f -a  ${libname}_${function_name}_entry=$addr"
-        # Set entry probe
-        sudo perf probe -x $1 -f -a  ${libname}_${function_name}_entry=$addr
-
-        # Set exit/return probe
-        sudo perf probe -x $1 -f -a  ${libname}_${function_name}=$addr%return
-
+        echo ",,$symbol,$symbol"
+        #libname=${libname%%.so*}
+	#echo "$libname,,$symbol,$symbol"
 done
 
 
