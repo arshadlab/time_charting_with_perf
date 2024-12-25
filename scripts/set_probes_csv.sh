@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright 2023
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,12 +39,14 @@
 # process must be active during the execution of the set_probes_csv.sh script. This requirement
 # is unnecessary when all .so names are provided as absolute paths.
 
+root_dir=$(dirname $(dirname "$(realpath "$0")"))
+
 probe_file=$1
 
 if [ -z $1 ]
 then
     echo "Using default probe file probes.csv"
-    probe_file="probes.csv"
+    probe_file="$root_dir/probes/probes.csv"
 fi
 
 #Delete all previous probes

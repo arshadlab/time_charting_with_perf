@@ -5,6 +5,6 @@
 
 #, ### Disabling below due to too much traffic generating.
 
-libORB_SLAM3.so, slam, TrackRGBD, TrackRGBD
-libORB_SLAM3.so, slam, ExtractORB, ExtractORB
+libORB_SLAM3.so,slam,TrackRGBD,TrackRGBD
+libORB_SLAM3.so,slam,ExtractORB,ExtractORB
 

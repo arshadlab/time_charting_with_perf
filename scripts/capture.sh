@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright 2023
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,21 +21,25 @@
 #    ./capture.sh 8 gzserver
 #    ./capture.sh 4
 
+root_dir=$(dirname $(dirname "$(realpath "$0")"))
 
 # Get duration value from command line. Else set default to 8
 capture_duration=${1:-8}
 p_cmd=""
 ctf_cmd=""
 
-if [ ! -f "./ctf2ctf/build/ctf2ctf" ]; then
+thirdparty=$root_dir/3rdparty
+
+if [ ! -f "$thirdparty/ctf2ctf/build/ctf2ctf" ]; then
      echo "ctf2ctf binary not found.  Building for the first run"
-     mkdir -p ./ctf2ctf/build
-     cmake -B ./ctf2ctf/build -S ./ctf2ctf/
-     make -j$(nproc) -C ./ctf2ctf/build
+     mkdir -p $thirdparty/3rdparty/ctf2ctf/build
+     cmake -B $thirdparty/ctf2ctf/build -S $root_dir/ctf2ctf/
+     make -j$(nproc) -C $thirdparty/ctf2ctf/build
 fi
 
-if [ ! -d "./FlameGraph" ]; then
+if [ ! -d "$thirdparty/FlameGraph" ]; then
      echo "Flame Graph not found.  Cloning"
+     cd $thirdparty
      git clone https://github.com/brendangregg/FlameGraph
 fi
 
@@ -58,7 +63,7 @@ echo "Capturing for $capture_duration seconds"
 processes=$(ps -ao pid,comm --sort=start_time)
 
 
-OUTPUT_DIR=./output
+OUTPUT_DIR=$root_dir/output
 mkdir -p $OUTPUT_DIR
 rm -rf $OUTPUT_DIR/*
 
@@ -93,20 +98,20 @@ perf data -i $OUTPUT_DIR/instrace.data convert --to-ctf $OUTPUT_DIR/instrace_dat
 
 
 echo "CTF conversion completed"
-sh -c "./ctf2ctf/build/ctf2ctf $OUTPUT_DIR/systrace_data/ $ctf_cmd > $OUTPUT_DIR/systrace.json"
-sh -c "./ctf2ctf/build/ctf2ctf $OUTPUT_DIR/instrace_data/ $ctf_cmd > $OUTPUT_DIR/instrace.json"
+sh -c "$thirdparty/ctf2ctf/build/ctf2ctf $OUTPUT_DIR/systrace_data/ $ctf_cmd > $OUTPUT_DIR/systrace.json"
+sh -c "$thirdparty/ctf2ctf/build/ctf2ctf $OUTPUT_DIR/instrace_data/ $ctf_cmd > $OUTPUT_DIR/instrace.json"
 
 echo "JSON conversion completed"
-./catapult/tracing/bin/trace2html $OUTPUT_DIR/systrace.json $OUTPUT_DIR//instrace.json --output $OUTPUT_DIR/trace.html --config full
+$thirdparty/catapult/tracing/bin/trace2html $OUTPUT_DIR/systrace.json $OUTPUT_DIR/instrace.json --output $OUTPUT_DIR/trace.html --config full
 echo "HTML conversion completed"
 
 # Generate flamegraph if tools are present in current directory
 # git clone https://github.com/brendangregg/FlameGraph"
 
-if test -f ./FlameGraph/stackcollapse-perf.pl ; then
+if test -f $thirdparty/FlameGraph/stackcollapse-perf.pl ; then
         echo "Generating FlameGraph"
-        perf script -i $OUTPUT_DIR/systrace.data  | ./FlameGraph/stackcollapse-perf.pl > $OUTPUT_DIR/flamegraph.perf-folded
-        ./FlameGraph/flamegraph.pl $OUTPUT_DIR/flamegraph.perf-folded > $OUTPUT_DIR/flamegraph.svg
+        perf script -i $OUTPUT_DIR/systrace.data  | $thirdparty/FlameGraph/stackcollapse-perf.pl > $OUTPUT_DIR/flamegraph.perf-folded
+        $thirdparty/FlameGraph/flamegraph.pl $OUTPUT_DIR/flamegraph.perf-folded > $OUTPUT_DIR/flamegraph.svg
 fi
 
 echo "Capture completed.  Use web browser to open $OUTPUT_DIR/trace.html and $OUTPUT_DIR/flamegraph.svg files"

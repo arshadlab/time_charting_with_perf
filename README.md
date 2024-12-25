@@ -164,7 +164,7 @@ CONFIG_UPROBE_EVENTS=y
 ```
 git clone https://github.com/arshadlab/time_charting_with_perf
 cd time_charting_with_perf
-./setup_dependency.sh 
+./setup_dependency.sh
 ```
 
 ##### Setup probes
@@ -177,7 +177,7 @@ ros2 launch <package> <launch command>
 Setup probes using set_probes_csv.sh script
 
 ```
-./set_probes_csv.sh
+./scripts/set_probes_csv.sh ./probes/probes.csv
 Setting probes on [/opt/ros/humble/lib/librcl.so] at symbol [ rcl_publish$]
 Address is 0x0
 Added new event:
@@ -203,19 +203,19 @@ Setting up probes is generally a one-time process, unless your system undergoes 
 
 Initiating capture using capture.sh.  Make sure target process is running (e.g gazebo).  Default capturing duration is 8 seconds
 ```
-./capture.sh
+./scripts/capture.sh
 ```
-trace.html and flamegraph.svg will be ready to be viewed in browser
+trace.html and flamegraph.svg will be in output folder and ready to be viewed in browser
 
 ```
-$ <browser> ./trace.html ./flamegraph.svg
+$ <browser> ./output/trace.html ./output/flamegraph.svg
 ```
 
 
 #### Remove Probes
 Once established, probes will remain created (but not active) until a system reboot or a change in the related binary file. It's important to note that these probes don't consume any CPU resources unless they're triggered by the perf record command. However, if you wish to eliminate the probes when they've served their purpose, it's highly recommended to do so. Here's the command you'll need for probe removal.
 ```
-./remove_all_probes.sh
+./scripts/remove_all_probes.sh
 ```
 
 ## Troubleshoot

@@ -1,3 +1,4 @@
+#!/bin/bash
 # Delete a single probe entry and exit
 # Syntax: 
 #   ./delete_probe_single.sh  <probe_name>

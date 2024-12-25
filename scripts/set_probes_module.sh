@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright 2023
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,32 +25,19 @@
 #   Using grep -P capability e.g \b for word boundary
 #   ./set_probe_lib.sh  /opt/ros/foxy/lib/librcl.so  '\bTracking\b|\bFrame\b'
 
-symbols=$(objdump -j .text -C -T $1 | grep -E "$2" | tr -s ' ' | cut -d ' ' -f 1,6)
-if [ -z $symbols ]
-then
- symbols=$(objdump -j .text -C -t $1 | grep -E "$2" | tr -s ' ' | cut -d ' ' -f 1,5)
-fi
+symbols=$(nm $1 | grep ' [T] ' | cut -d ' ' -f 3 | grep -E "$2" | tr -s ' ')
 echo $symbols
 
-echo "$symbols" | while read -r address symbol
+echo "$symbols" | while read -r symbol
 do
-      
-        libname=$(basename $1)
-        #libname=${libname%.*}
-        libname=${libname%%.so*}
-
-        addr=0x$address
-        echo $address, $symbol
         #function_name=$(echo "$symbol" | sed -E 's/.*::([^<(]*).*/\1/')
-        function_name=$(echo "$symbol" | sed 's/[(<].*//')
-        function_name="${function_name##*::}"
-        echo "Setting Probes for $symbol.  Function name $function_name"
-        echo "perf probe -x $1 -f -a  ${libname}_${function_name}_entry=$addr"
+
+        echo "perf probe -m $1 -f -a  i915_${symbol}_entry=$symbol"
         # Set entry probe
-        sudo perf probe -x $1 -f -a  ${libname}_${function_name}_entry=$addr
+        sudo perf probe -m $1 -f -a  i915_${symbol}_entry=$symbol
 
         # Set exit/return probe
-        sudo perf probe -x $1 -f -a  ${libname}_${function_name}=$addr%return
+        sudo perf probe -m $1 -f -a  i915_${symbol}=$symbol%return
 
 done
 
