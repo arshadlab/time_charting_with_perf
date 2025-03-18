@@ -78,7 +78,7 @@ while IFS= read -r function_name; do
 
     # Check if return probe should also be added
     if [ "$ADD_RETURN_PROBE" -eq 1 ]; then
-        sudo perf probe $probe_flag "$MODULE_PATH" -a "${function_name}_entry"
+        sudo perf probe $probe_flag "$MODULE_PATH" -a "${function_name}_entry=${function_name}"
         echo "Setting return probe on function $current_function/$total_functions: $function_name"
         sudo perf probe $probe_flag "$MODULE_PATH" -a "$function_name%return"
     else
