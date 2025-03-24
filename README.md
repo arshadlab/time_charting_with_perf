@@ -158,6 +158,29 @@ CONFIG_UPROBES=y
 CONFIG_UPROBE_EVENTS=y
 ```
 
+Also, make sure that perf is built with CTF support enabled. You can check this by verifying whether the --to-ctf option appears in the list of supported commands:
+
+```
+$ perf data convert --help
+  Usage: perf data convert [<options>]
+
+    -f, --force           don't complain, do it
+    -i, --input <file>    input file name
+    -v, --verbose         be more verbose
+        --all             Convert all events
+        --to-ctf ...      Convert to CTF format
+        --to-json ...     Convert to JSON format
+        --tod             Convert time to wall clock time
+
+```
+
+If --to-ctf is not listed, you’ll need to install the following packages before rebuilding the perf tool from the kernel source:
+
+```
+sudo apt-get install libbabeltrace-ctf-dev libbabeltrace-ctf1 libbabeltrace1 libbabeltrace-dev python3-babeltrace
+```
+
+As long as the kernel headers for your target kernel are properly installed, you don’t need to rebuild the entire kernel. You can build perf separately by navigating to the <kernel_source>/tools/perf directory and running make, assuming all necessary development packages are installed.
 
 ##### Clone this repo and install dependencies
 
