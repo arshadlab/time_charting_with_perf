@@ -189,6 +189,12 @@ sudo apt-get install libbabeltrace-ctf-dev libbabeltrace-ctf1 libbabeltrace1 lib
 
 As long as the kernel headers for the target kernel are properly installed, there's no need to rebuild the entire kernel. The perf tool can be built separately by navigating to the <kernel_source>/tools/perf directory and running make, provided that all required development packages are in place.
 
+```
+<kernel src>/tools/perf $ make
+```
+
+Once the perf binary is built, it can either be copied to /usr/bin/ for system-wide access, or the current directory can be added to the PATH environment variable for convenient use.
+
 ##### Clone this repo and install dependencies
 
 ```
