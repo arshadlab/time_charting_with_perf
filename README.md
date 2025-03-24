@@ -1,7 +1,7 @@
 # Bash Scripting Meets Performance Analysis:
 ## BashfulProfiler for Linux application and Kernel
 
-Introducing BashfulProfiler: a robust, non-intrusive, and highly adaptable bash-based performance analysis tool. Its main goal is to provide developers with flexible and detailed insights into the performance characteristics of their Linux-based applications. All you need is Linux perf tool support on your system and, preferably, symbol-built (e.g., -g) target binaries, whether executables or dynamic libraries.  This implementation has been tested on Ubuntu 2022 and 2024 with Python 3.10 or Python 3.12. Although it primarily involves bash scripts, the third-party tools used rely on Python.
+Introducing BashfulProfiler: a robust, non-intrusive, and highly adaptable performance analysis tool built around Bash. Designed to offer developers flexible and detailed insights into the performance characteristics of their Linux-based applications, BashfulProfiler leverages the power of the Linux perf tool. It works best when the target binaries — executables or shared libraries — are compiled with symbols (e.g., using the -g flag). This implementation has been tested on Ubuntu 22.04 and 24.04, with Python versions 3.10 and 3.12. While the core logic is implemented in Bash, several third-party utilities integrated into the workflow are Python-based.
 
 ## Overview
 The tool's design is split into two main components: the front end, built entirely using bash scripting, and the backend, which relies on the Linux Kernel Perf tool, ctf2ctf, trace2html and flamegraph. Probes or traces are defined in a configuration file (for instance, probes.csv), which are then parsed and passed to the Perf tool to set up the probes. Once set, a capturing script proceeds to record these probes over a predetermined duration (such as 8 seconds). After the recording phase, the captured data is processed and transformed into easily understandable time charts and flamegraphs, offering clear insights for performance analysis.  The probe setting is done once for that boot session however capture can be done multiple times depending on run configuratins and needs.
@@ -19,9 +19,9 @@ Flow Diagram:
 
 **Data Processing** The raw trace data is processed through perf convert and ctf2ctf to convert it into a more readable and analyzable format.
 
-**Interactive Performance Charts** The processed trace data is then fed into trace2html to create interactive performance time charts. The time chart visualizes how your application's functions interact over time, helping you spot potential bottlenecks or inefficiencies.
+**Interactive Performance Charts** The processed trace data is then passed to trace2html to generate interactive performance time charts. These charts provide a visual representation of how functions within the application execute and interact over time, making it easier to identify potential bottlenecks or performance inefficiencies.
 
-**Flamegraph Generation**: In addition to time charts, BashfulProfiler also provides Flamegraph visualizations for a more consolidated view of your program's performance.
+**Flamegraph Generation**: In addition to time charts, BashfulProfiler also generates Flamegraph visualizations, offering a more consolidated and intuitive view of the program’s performance. This helps in quickly identifying hotspots and understanding function call hierarchies at a glance.
 
 ### Probe configuration file (probes.csv)
 ```
@@ -91,7 +91,7 @@ To further explain regex expressions, the pattern **\bov::intel_gpu::Plugin::com
 
 ## Analyzing Gazebo ROS2:
 
-The default probes included with the tool are selected for analyzing Gazebo simulations that involve ROS2, including interactions with the Navigation2 and Moveit2 stacks. Here’s what you can learn from the provided set of probes:
+The default probes included with the tool are specifically chosen to analyze Gazebo simulations that involve ROS 2, including interactions with the Navigation2 and MoveIt2 stacks. These probes help uncover performance characteristics such as:
 
 **Time chart of key events in Gazebo and ROS2:** Visualize the timeline of critical events, helping to understand system's operation and identify potential performance issues.
 
@@ -158,6 +158,42 @@ CONFIG_UPROBES=y
 CONFIG_UPROBE_EVENTS=y
 ```
 
+It is also important to ensure that perf is built with CTF support enabled. This can be verified by checking if the --to-ctf option appears in the list of supported commands:
+
+```
+$ perf data convert --help
+  Usage: perf data convert [<options>]
+
+    -f, --force           don't complain, do it
+    -i, --input <file>    input file name
+    -v, --verbose         be more verbose
+        --all             Convert all events
+        --to-ctf ...      Convert to CTF format
+        --to-json ...     Convert to JSON format
+        --tod             Convert time to wall clock time
+
+```
+
+If --to-ctf is not listed, the following packages should be installed before rebuilding the perf tool from the kernel source:
+
+Install kernel build packages
+```
+sudo apt-get install libncurses-dev flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf
+```
+
+Install perf specific packages
+```
+sudo apt-get install libpfm4-dev elfutils libdw-dev systemtap-sdt-dev libunwind-dev libslang2-dev libcap-dev libcapstone-dev libbabeltrace-ctf-dev libtraceevent-dev libbfd-dev libperl-dev
+sudo apt-get install libbabeltrace-ctf-dev libbabeltrace-ctf1 libbabeltrace1 libbabeltrace-dev python3-babeltrace
+```
+
+As long as the kernel headers for the target kernel are properly installed, there's no need to rebuild the entire kernel. The perf tool can be built separately by navigating to the <kernel_source>/tools/perf directory and running make, provided that all required development packages are in place.
+
+```
+<kernel src>/tools/perf $ make
+```
+
+Once the perf binary is built, it can either be copied to /usr/bin/ for system-wide access, or the current directory can be added to the PATH environment variable for convenient use.
 
 ##### Clone this repo and install dependencies
 
@@ -204,7 +240,7 @@ Probes can also be set directly on .so files. Use the set_probes_lib.sh script w
 $ ./scripts/set_probes_lib.sh /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
 ```
 
-Setting up probes is generally a one-time process, unless your system undergoes a reboot or the target binary is modified or updated.  New probes are appended to existing list and if the same probe is added again then it's overwritten.   Once these probes are properly configured, you can conduct multiple capture sessions without needing to set them up again. Thus, the configuration persists across various capture sessions, offering you the flexibility to perform repeated analyses with ease.
+Setting up probes is typically a one-time task, unless the system is rebooted or the target binary is modified or updated. New probes are appended to the existing list, and if a probe with the same name is added again, it will be overwritten. Once configured, these probes remain available, allowing multiple capture sessions to be conducted without the need for reconfiguration. This persistence across sessions provides the flexibility to perform repeated analyses efficiently.
 
 ##### Start Capturing
 
@@ -220,12 +256,12 @@ $ <browser> ./output/trace.html ./output/flamegraph.svg
 
 
 #### Remove Probes
-Once established, probes will remain created (but not active) until a system reboot or a change in the related binary file. It's important to note that these probes don't consume any CPU resources unless they're triggered by the perf record command. However, if you wish to eliminate the probes when they've served their purpose, it's highly recommended to do so. Here's the command you'll need for probe removal.
+Once established, probes remain created (though inactive) until the system is rebooted or the associated binary is modified. It’s important to note that these probes do not consume any CPU resources unless they are actively used by a perf record session. However, if the probes are no longer needed, it’s a good practice to remove them to keep the environment clean and avoid potential conflicts. The following command can be used to remove all probes:
 ```
 ./scripts/remove_all_probes.sh
 ```
 
 ## Troubleshoot
-If there are an excessive number of trace samples, loading the .html file in the browser might become problematic. In such situations, you have two options: either reduce the number of trace probes or decrease the capture duration to reduce the overall size of the captured samples.
+If the number of trace samples becomes too large, loading the generated .html file in a browser may become difficult or unresponsive. In such cases, there are two practical options: either reduce the number of active trace probes or shorten the capture duration to limit the volume of collected data.
 
-Probe names have a length limit. If you encounter issues while setting probes, try reducing the length of the probe names in the .csv file.
+Additionally, probe names have a length restriction. If issues arise while setting probes, it may help to shorten the probe names defined in the .csv file to ensure compatibility.
