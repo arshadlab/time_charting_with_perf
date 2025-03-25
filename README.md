@@ -183,7 +183,7 @@ sudo apt-get install libncurses-dev flex bison openssl libssl-dev dkms libelf-de
 
 Install perf specific packages
 ```
-sudo apt-get install libpfm4-dev elfutils libdw-dev systemtap-sdt-dev libunwind-dev libslang2-dev libcap-dev libbabeltrace-ctf-dev libtraceevent-dev libbfd-dev libperl-dev
+sudo apt-get install libpfm4-dev elfutils libdw-dev systemtap-sdt-dev libunwind-dev libslang2-dev libcap-dev libcapstone-dev libbabeltrace-ctf-dev libtraceevent-dev libbfd-dev libperl-dev
 sudo apt-get install libbabeltrace-ctf-dev libbabeltrace-ctf1 libbabeltrace1 libbabeltrace-dev python3-babeltrace
 ```
 
