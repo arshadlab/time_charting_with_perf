@@ -232,17 +232,19 @@ You can now use it in all perf tools, such as:
 
 Probes can also be set directly on .so files. Use the set_probes_lib.sh script with an optional filter to set probes. If no filter is provided, probes will be added to all exported symbols. Initially, publicly available symbols will be searched (e.g., using -T), and if no symbol is found, debug symbols will be searched (e.g., using -t).
 
+This will place entry/exit probes on all function symbols in iHD_drv_video.so that contain 'Execute(' in their names.  Note the escape '\' for special characters.
+
 ```
-$ probe_set_all_from_binary /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
+$ probe_set_all_from_binary /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so 'Execute\('
 ```
 
 Setting up probes is typically a one-time task, unless the system is rebooted or the target binary is modified or updated. New probes are appended to the existing list, and if a probe with the same name is added again, it will be overwritten. Once configured, these probes remain available, allowing multiple capture sessions to be conducted without the need for reconfiguration. This persistence across sessions provides the flexibility to perform repeated analyses efficiently.
 
 #### Start Capturing
 
-Initiating capture using capture.sh.  Make sure target process is running (e.g gazebo).  Default capturing duration is 8 seconds
+Initiating capture using capture.sh.  Make sure target process is running (e.g gst-launch).  Default capturing duration is 8 seconds
 ```
-$ trace_capture_and_convert
+$ trace_capture_and_convert [capture duration in seconds]
 ```
 trace.html and flamegraph.svg will be in output folder and ready to be viewed in browser
 
