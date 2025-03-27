@@ -183,6 +183,7 @@ $ probe_remove_all
 ```
 
 ### Probe configuration file (intel_media.csv)
+
 ```
 #,probe_set_csv will look into the given process to find library path from loaded .so files
 #,If absolute path is given then process name is ignored.
@@ -259,6 +260,8 @@ i915.ko, ,\bflush_submission
 ```
 
 
+Setting up probes is typically a one-time task, unless the system is rebooted or the target binary is modified or updated. New probes are appended to the existing list, and if a probe with the same name is added again, it will be overwritten. Once configured, these probes remain available, allowing multiple capture sessions to be conducted without the need for reconfiguration. This persistence across sessions provides the flexibility to perform repeated analyses efficiently.
+
 To further explain regex expressions, the pattern **\bov::intel_gpu::Plugin::compile_model\(.*\)** for the compile_model probe is designed to match lines in text where the compile_model() method of the Plugin class in the ov::intel_gpu namespace is invoked. It captures any arguments it might take (e.g., .*), and ensures it starts at a word boundary (\b) to prevent partial matches. Additionally, the $ character in some probes ensures that matching occurs only for those symbols where there is no extra word or character at the end.
 
 
@@ -297,8 +300,6 @@ Simulation update breakup
 
 BashfulProfiler acts as a seamless conduit between applications and the Linux Perf tool, offering  a user-friendly and efficient way to gain insights into system's performance and take action where necessary.
 
-
-
 ## Troubleshoot
 If the number of trace samples becomes too large, loading the generated .html file in a browser may become difficult or unresponsive. In such cases, there are two practical options: 
 Either
@@ -330,3 +331,4 @@ $ probe_remove vaDisplayIsValid
 ```
 
 Probe names have a length restriction. If issues arise while setting probes, it may help to shorten the probe names defined in the .csv file to ensure compatibility.
+
