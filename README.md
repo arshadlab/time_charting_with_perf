@@ -329,4 +329,4 @@ Once unncessarry probes are identified then either remove them from .csv by adju
 $ probe_remove vaDisplayIsValid
 ```
 
-Additionally, probe names have a length restriction. If issues arise while setting probes, it may help to shorten the probe names defined in the .csv file to ensure compatibility.
+Probe names have a length restriction. If issues arise while setting probes, it may help to shorten the probe names defined in the .csv file to ensure compatibility.
