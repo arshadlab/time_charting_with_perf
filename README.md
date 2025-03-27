@@ -11,6 +11,22 @@ Flow Diagram:
 ![image](https://github.com/arshadlab/time_charting_with_perf/assets/85929438/71ae12ec-4c0f-4655-aa5d-9f2c97ef1220)
 
 
+### Usage
+- Use the provided script to build the Linux perf tool with CTF support. The script downloads the Linux kernel source for the running kernel’s major version and compiles only the perf tool. The tool also requires certain kernel CONFIG options to be enabled, which are typically enabled in stock kernels.
+
+- Identify binaries and their exported functions or symbols to set probes on. Any .so file or kernel module with publicly exported methods can be traced. However, using binaries built with debug symbols (-g option, but still optimized for release) provides richer probe points. It is recommended to generate binaries with debug symbols included and not stripped. Regular expression is supported (e.g grep) as symbol filter.
+
+- set TRACE_ROOT to this repo local path and source bashfulprofiler.sh for bash function availability.
+
+- Create a .csv recipe to define probes across multiple .so files and kernel modules. Alternatively, users can set ad hoc probe points by directly calling the script's functions. See probes directory for examples.
+  
+- Start the workload in a separate console.
+  
+- Run trace_capture_and_convert to capture traces while the workload is running.
+  
+- Open the generated trace.html and flamegraph in a browser to analyze the results.
+
+- Once set, probes remain available throughout the boot session or until the binary is rebuilt.
 
 ### Features
 **Dynamic Tracepoint Injection**: No need to modify  source code, simply provide the shared libraries and functions of interest, and BashfulProfiler will handle the rest.
