@@ -23,17 +23,33 @@ Flow Diagram:
 
 **Flamegraph Generation**: In addition to time charts, BashfulProfiler also generates Flamegraph visualizations, offering a more consolidated and intuitive view of the program’s performance. This helps in quickly identifying hotspots and understanding function call hierarchies at a glance.
 
+Users can set up probes either by directly calling the probe-setting Bash functions or by using a .csv file as a recipe for a quick and consistent setup across different binaries and kernel modules. This approach allows teams to share recipes, ensuring uniform output and faster results.
+
 ### Probe configuration file (probes.csv)
 ```
-#, Header: ".so name", "process name", "symbol filter"
-#, ROS2 libraries
-#, set_probes_csv.sh will look into the given process to find library path from loaded .so files
-#, If absolute path is given then process name is ignored.
+#,probe_set_csv will look into the given process to find library path from loaded .so files
+#,If absolute path is given then process name is ignored.
 
-/opt/ros/humble/lib/librcl.so,,rcl_publish$
-librcl.so,gzserver,rcl_take_request$
-librcl.so,gzserver,rcl_take$
+#,Header: ".so name","process name","symbol filter"
+# Add probes to libva's publically exported symbols.
+/usr/lib/x86_64-linux-gnu/libva.so.2.2200.0,,va
+
+# Add probes to media driver's symbols with CreateBuffer keyword inside.  Need to build with -g else will not hit any
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,CreateBuffer
+
+# Add probe to i915 execbuffer call.  Xe probes can be added accordingly.
+i915.ko,,\bi915_gem_do_execbuffer$
+i915.ko,,\bi915_gem_wait_ioctl$
+i915.ko,,\bi915_request_wait$
+i915.ko,,\bi915_request_wait_timeout$
+i915.ko,,\bflush_submission$
 ...
+```
+
+Setting probes based on recipe can be done using probe_set_csv function call.
+
+```
+$ probe_set_csv ./scripts/intel_media.csv
 ```
 
 The probes.csv is a comma-separated .csv file with four columns and no spaces around commas. The first column is designated for the .so/binary to be probed, and it can contain either just the name or the absolute path. If only the name is provided, the process name - which is the second entry - will be utilized to determine the absolute location of the .so. The process, presumably running with the .so file loaded, should be active prior to setting up probes. However, if an absolute path is provided, there's no requirement for the process name, and probe setup can be conducted at any time.
@@ -51,10 +67,10 @@ Here is a sample probe CSV file designed to set trace points at key locations, i
 
 Sample probe file for OpenVino analysis:
 ```
-#, Header: ".so name","process name","symbol filter","probe name"
+#, Header: ".so name","process name","symbol filter"
 #, No space before and after commas
 #, Openvino library with debug symbol included
-#, set_probes_csv.sh will look into the given process to find library path from loaded .so files
+#, probe_set_csv will look into the given process to find library path from loaded .so files
 #, If absolute path is given then process name is ignored.
 #, Below probes assume openvino plugins are compiled with debug symbols included (e.g -g).
 
