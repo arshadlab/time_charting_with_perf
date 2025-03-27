@@ -1,0 +1,19 @@
+#,probe_set_csv will look into the given process to find library path from loaded .so files
+#,If absolute path is given then process name is ignored.
+
+#,Header: ".so name","process name","symbol filter"
+# Add probes to libva's publically exported symbols.
+/usr/lib/x86_64-linux-gnu/libva.so.2.2200.0,,va
+
+# Add probes to media driver's symbols with CreateBuffer keyword inside.  Need to build with -g else will not hit any
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,CreateBuffer
+
+# Add probe to i915 execbuffer call.  Xe probes can be added accordingly.
+i915.ko,,\bi915_gem_do_execbuffer$
+i915.ko,,\bi915_gem_wait_ioctl$
+i915.ko,,\bi915_request_wait$
+i915.ko,,\bi915_request_wait_timeout$
+i915.ko,,\bflush_submission$
+
+
+

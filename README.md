@@ -25,20 +25,20 @@ Flow Diagram:
 
 ### Probe configuration file (probes.csv)
 ```
-#, Header: ".so name", "process name", "symbol filter", "probe name"
+#, Header: ".so name", "process name", "symbol filter"
 #, ROS2 libraries
 #, set_probes_csv.sh will look into the given process to find library path from loaded .so files
 #, If absolute path is given then process name is ignored.
 
-/opt/ros/humble/lib/librcl.so,,rcl_publish$,rclpublish
-librcl.so,gzserver,rcl_take_request$,rcl_take_request
-librcl.so,gzserver,rcl_take$,rcl_take_topic_subscription
+/opt/ros/humble/lib/librcl.so,,rcl_publish$
+librcl.so,gzserver,rcl_take_request$
+librcl.so,gzserver,rcl_take$
 ...
 ```
 
 The probes.csv is a comma-separated .csv file with four columns and no spaces around commas. The first column is designated for the .so/binary to be probed, and it can contain either just the name or the absolute path. If only the name is provided, the process name - which is the second entry - will be utilized to determine the absolute location of the .so. The process, presumably running with the .so file loaded, should be active prior to setting up probes. However, if an absolute path is provided, there's no requirement for the process name, and probe setup can be conducted at any time.
 
-The third column is designated for the symbol on which the probe is to be set. This symbol can be either fully named or partially named with a wildcard, following the Linux grep regular expression pattern. If multiple entries match, probes will be set up on all of them. The final column is for the probe name, which is usually the same as the symbol.
+The third column is designated for the symbol on which the probe is to be set. This symbol can be either fully named or partially named with a wildcard, following the Linux grep regular expression pattern. If multiple entries match, probes will be set up on all of them.
 
 The process name is required for the first row without path, and all subsequent rows use the same name for finding the .so path. Also if multiple symbols match the regular expression, the probe name is appended with the symbol address to ensure uniqueness and facilitate tracking. Additionally, the complete symbol line output by objdump is displayed in the script, which helps relate the captured probe to the exact symbol signature.
 
@@ -59,26 +59,26 @@ Sample probe file for OpenVino analysis:
 #, Below probes assume openvino plugins are compiled with debug symbols included (e.g -g).
 
 # GPU
-libopenvino_intel_gpu_plugin.so,benchmark_app,\bov::intel_gpu::SyncInferRequest::infer\(\)\s*$,gpu_infer_request
-libopenvino_intel_gpu_plugin.so,,\bov::intel_gpu::Plugin::compile_model\(.*\),gpu_compile_model
-libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::enqueue\(\)\s*$,gpu_infer_enqueue
-libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::wait\(\)\s*$,gpu_infer_wait
-libopenvino_intel_gpu_plugin.so,,\bcldnn::network::execute_impl\(.*\)$,cldnn_execute_impl
-libopenvino_intel_gpu_plugin.so,,\bcldnn::ocl::ocl_stream::flush\(\)\sconst$,cldnn_flush
-libopenvino_intel_gpu_plugin.so,,\bcldnn::ocl::typed_primitive_impl_ocl<.*>::execute_impl,cldnn_execute_impl
-libopenvino_intel_gpu_plugin.so,,\bcldnn::onednn::typed_primitive_onednn_impl<.*>::build_primitive,onednn_build_primitive
-libopenvino_intel_gpu_plugin.so,,\bcldnn::onednn::typed_primitive_onednn_impl<.*>::execute_impl,onednn_execute_impl
-libopenvino_auto_batch_plugin.so,,\bov::autobatch_plugin::Plugin::compile_model\(.*\),auto_batch_compile_model
+libopenvino_intel_gpu_plugin.so,benchmark_app,\bov::intel_gpu::SyncInferRequest::infer\(\)\s*$
+libopenvino_intel_gpu_plugin.so,,\bov::intel_gpu::Plugin::compile_model\(.*\)
+libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::enqueue\(\)\s*$
+libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::wait\(\)\s*$
+libopenvino_intel_gpu_plugin.so,,\bcldnn::network::execute_impl\(.*\)$
+libopenvino_intel_gpu_plugin.so,,\bcldnn::ocl::ocl_stream::flush\(\)\sconst$
+libopenvino_intel_gpu_plugin.so,,\bcldnn::ocl::typed_primitive_impl_ocl<.*>::execute_impl
+libopenvino_intel_gpu_plugin.so,,\bcldnn::onednn::typed_primitive_onednn_impl<.*>::build_primitive
+libopenvino_intel_gpu_plugin.so,,\bcldnn::onednn::typed_primitive_onednn_impl<.*>::execute_impl
+libopenvino_auto_batch_plugin.so,,\bov::autobatch_plugin::Plugin::compile_model\(.*\)
 
 # CPU
-libopenvino_intel_cpu_plugin.so,benchmark_app,\bov::intel_cpu::SyncInferRequest::infer\(\)\s*$, cpu_infer_request
-libopenvino_intel_cpu_plugin.so,,\bov::intel_cpu::Plugin::compile_model\(.*\), cpu_compile_model
+libopenvino_intel_cpu_plugin.so,benchmark_app,\bov::intel_cpu::SyncInferRequest::infer\(\)\s*$
+libopenvino_intel_cpu_plugin.so,,\bov::intel_cpu::Plugin::compile_model\(.*\)
 
 # Kernel mode driver.  i915.ko
-i915.ko, ,\bi915_gem_do_execbuffer,i915_gem_do_execbuffer
-i915.ko, ,\bii915_gem_wait_ioctl,i915_gem_wait_ioctl
-i915.ko, ,\bi915_request_wait_timeout,i915_request_wait_timeout
-i915.ko, ,\bflush_submission,flush_submission
+i915.ko, ,\bi915_gem_do_execbuffer
+i915.ko, ,\bii915_gem_wait_ioctl
+i915.ko, ,\bi915_request_wait_timeout
+i915.ko, ,\bflush_submission
 
 ```
 
@@ -201,6 +201,7 @@ Once the perf binary is built, it can either be copied to /usr/bin/ for system-w
 git clone https://github.com/arshadlab/time_charting_with_perf
 cd time_charting_with_perf
 ./setup_dependency.sh
+export TRACE_ROOT=$PWD
 ```
 
 ##### Setup probes using csv
