@@ -41,7 +41,148 @@ Flow Diagram:
 
 Users can set up probes either by directly calling the probe-setting Bash functions or by using a .csv file as a recipe for a quick and consistent setup across different binaries and kernel modules. This approach allows teams to share recipes, ensuring uniform output and faster results.
 
-### Probe configuration file (probes.csv)
+
+## Getting Started
+### Installation
+
+#### Clone this repo and install dependencies
+First of all, git clone repo to local folder.
+
+```
+git clone https://github.com/arshadlab/time_charting_with_perf
+cd time_charting_with_perf
+./setup_dependency.sh
+export TRACE_ROOT=$PWD
+source ./scripts/bashfulprofiler.sh
+```
+
+#### Setup system with linux perf tool enabled
+
+The Linux Perf tool is a powerful utility for profiling and performance monitoring on Linux systems.  Here are brief steps to setup system with perf tool
+
+##### Install perf tool
+
+Due to the necessity of perf, root access (for example, using sudo) is required. Perf also need to be compiled with ctf conversion support which the default build doesn't comes with. 
+A helper script is provided in the scripts folder to download the kernel source for the current major version and compile only the perf tool. This script also installs all necessary dependencies.
+For more control, users can choose to execute the commands manually.
+
+```
+$ ./build_perf_with_ctf.sh
+```
+
+Keep in mind that the perf tool requires root permissions (e.g sudo) and capabilities to function properly. It also depends on certain kernel CONFIG options being enabled. In most cases, the stock kernel includes the necessary configurations by default.
+
+If perf command doesn't work as expected then most likely kernel is not build with required configs.  Please refer to existing manuals on how to rebuild kernel.  Make sure below configs are enabled in the .config file.
+
+```
+CONFIG_PERF_EVENTS=y
+CONFIG_FRAME_POINTER=y
+CONFIG_KALLSYMS=y
+CONFIG_TRACEPOINTS=y
+CONFIG_KPROBES=y
+CONFIG_KPROBE_EVENTS=y
+# user-level dynamic tracing:
+CONFIG_UPROBES=y
+CONFIG_UPROBE_EVENTS=y
+```
+
+The given script builds perf with ctf support.  This can be verified by checking if the --to-ctf option appears in the list of supported commands:
+
+```
+$ perf data convert --help
+  Usage: perf data convert [<options>]
+
+    -f, --force           don't complain, do it
+    -i, --input <file>    input file name
+    -v, --verbose         be more verbose
+        --all             Convert all events
+        --to-ctf ...      Convert to CTF format
+        --to-json ...     Convert to JSON format
+        --tod             Convert time to wall clock time
+
+```
+
+If --to-ctf is not listed, the require packages listed in perf install script should be installed before rebuilding the perf tool from the kernel source.
+
+As long as the kernel headers for the target kernel are properly installed, there's no need to rebuild the entire kernel. The perf tool can be built separately by navigating to the <kernel_source>/tools/perf directory and running make, provided that all required development packages are in place.
+
+```
+<kernel src>/tools/perf $ make
+```
+
+Once the perf binary is built, it can either be copied to /usr/bin/ for system-wide access, or the current directory can be added to the PATH environment variable for convenient use.
+
+#### Setup probes using csv
+
+It's important to initiate workload or the target process before setting up the probes. This is because the probes, as defined in the probe.csv file, rely on running target process in order to determine the absolute locations of the .so files within the system. However, if  probe.csv file contains the full paths to the .so files, running the target process prior to setting up the probes is not necessary.
+```
+gst-launch-1.0 filesrc location=<h265file path> ! h265parse ! vah265dec  ! queue ! gvafpscounter starting-frame=2000 ! fakesink async=false
+```
+
+The helper functions are provided in bashfulprofiler.sh, so make sure to source it before proceeding if you haven't already.
+
+```
+source ./scripts/bashfulprofiler.sh
+```
+
+Setup probes using probe_set_csv bash function
+
+```
+$ probe_set_csv ./probes/intel_media.csv
+Setting probe for: vaDisplayIsValid at 0x00000000000043e0
+perf command:
+	 sudo perf probe -x /usr/lib/x86_64-linux-gnu/libva.so.2.2200.0 -a vaDisplayIsValid_entry=0x00000000000043e0
+Added new event:
+  probe_libva:vaDisplayIsValid_entry (on 0x00000000000043e0 in /usr/lib/x86_64-linux-gnu/libva.so.2.2200.0)
+
+You can now use it in all perf tools, such as:
+
+	perf record -e probe_libva:vaDisplayIsValid_entry -aR sleep 1
+
+perf command:
+	 sudo perf probe -x /usr/lib/x86_64-linux-gnu/libva.so.2.2200.0 -a vaDisplayIsValid=0x00000000000043e0%return
+Added new event:
+  probe_libva:vaDisplayIsValid__return (on 0x00000000000043e0%return in /usr/lib/x86_64-linux-gnu/libva.so.2.2200.0)
+
+
+You can now use it in all perf tools, such as:
+
+	perf record -e probe_librcl:rclpublish__return -aR sleep 1
+
+```
+
+#### Setup probes using lib
+
+Probes can also be set directly on .so files. Use the probe_set_all_from_binary script function with an optional filter to set probes. If no filter is provided, probes will be added to all exported symbols. Both, publicly available symbols (e.g., using -T) as well as debug symbols will be searched (e.g., using -t).
+
+This will place entry/exit probes on all function symbols in iHD_drv_video.so that contain 'Execute(' in their names.  Note the escape '\' for special characters.
+
+```
+$ probe_set_all_from_binary /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so 'Execute\('
+```
+
+Setting up probes is typically a one-time task, unless the system is rebooted or the target binary is modified or updated. New probes are appended to the existing list, and if a probe with the same name is added again, it will be overwritten. Once configured, these probes remain available, allowing multiple capture sessions to be conducted without the need for reconfiguration. This persistence across sessions provides the flexibility to perform repeated analyses efficiently.
+
+#### Start Capturing
+
+Initiating capture using capture.sh.  Make sure target process is running (e.g gst-launch).  Default capturing duration is 8 seconds
+```
+$ trace_capture_and_convert [capture duration in seconds]
+```
+trace.html and flamegraph.svg will be in output folder and ready to be viewed in browser
+
+```
+$ <browser> ./output/trace.html ./output/flamegraph.svg
+```
+
+
+#### Remove Probes
+Once established, probes remain created (though inactive) until the system is rebooted or the associated binary is modified. It’s important to note that these probes do not consume any CPU resources unless they are actively used by a perf record session. However, if the probes are no longer needed, it’s a good practice to remove them to keep the environment clean and avoid potential conflicts. The following command can be used to remove all probes:
+```
+$ probe_remove_all
+```
+
+### Probe configuration file (intel_media.csv)
 ```
 #,probe_set_csv will look into the given process to find library path from loaded .so files
 #,If absolute path is given then process name is ignored.
@@ -50,7 +191,7 @@ Users can set up probes either by directly calling the probe-setting Bash functi
 # Add probes to libva's publically exported symbols.
 /usr/lib/x86_64-linux-gnu/libva.so.2.2200.0,,va
 
-# Add probes to media driver's symbols with CreateBuffer keyword inside.  Need to build with -g else will not hit any
+# Add probes to media driver's symbols containing CreateBuffer keyword.  Requires media driver to be build with -g else will not hit any
 /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,CreateBuffer
 
 # Add probe to i915 execbuffer call.  Xe probes can be added accordingly.
@@ -74,9 +215,12 @@ The third column is designated for the symbol on which the probe is to be set. T
 
 The process name is required for the first row without path, and all subsequent rows use the same name for finding the .so path. Also if multiple symbols match the regular expression, the probe name is appended with the symbol address to ensure uniqueness and facilitate tracking. Additionally, the complete symbol line output by objdump is displayed in the script, which helps relate the captured probe to the exact symbol signature.
 
-The sample probes.csv for Gazebo performance analysis leverages symbols exported by .so. However, if the binary is compiled with the -g option, more precise probing is possible as a larger set of symbols will be accessible for selection.
+The sample intel_media.csv for Intel media performance analysis leverages symbols exported by .so. However, if the binary is compiled with the -g option, more precise probing is possible as a larger set of symbols will be accessible for selection.
 
 Scripts are included in the repo to view loaded libraries and symbols exported by them.
+
+![image](https://github.com/user-attachments/assets/10cc7e95-8de7-46bb-a049-43cc7d698667)
+
 
 ## Sample probes for OpenVino Run:
 Here is a sample probe CSV file designed to set trace points at key locations, including the entry points when a model is compiled and then sent for inference. At this stage, primitives are assembled into GPU kernels, and following a flush, the call waits for the GPU to complete execution. Having all this information visually presented at the forefront provides a holistic view of how the framework internally handles requests and the time spent at each stage. The included probes offer a comprehensive picture, though users can add more probes as needed. Note: The probes below require OpenVino to be built from source with the RelWithDebugInfo option.
@@ -154,144 +298,35 @@ Simulation update breakup
 BashfulProfiler acts as a seamless conduit between applications and the Linux Perf tool, offering  a user-friendly and efficient way to gain insights into system's performance and take action where necessary.
 
 
-## Getting Started
-### Installation
-
-#### Clone this repo and install dependencies
-First of all, git clone repo to local folder.
-
-```
-git clone https://github.com/arshadlab/time_charting_with_perf
-cd time_charting_with_perf
-./setup_dependency.sh
-export TRACE_ROOT=$PWD
-source ./scripts/bashfulprofiler.sh
-```
-
-#### Setup system with linux perf tool enabled
-
-The Linux Perf tool is a powerful utility for profiling and performance monitoring on Linux systems.  Here are brief steps to setup system with perf tool
-
-##### Install perf tool
-
-Due to the necessity of perf, root access (for example, using sudo) is required. Perf also need to be compiled with ctf conversion support which the default build doesn't comes with. 
-A helper script is provided in the scripts folder to download the kernel source for the current major version and compile only the perf tool. This script also installs all necessary dependencies.
-For more control, users can choose to execute the commands manually.
-
-```
-$ ./build_perf_with_ctf.sh
-```
-
-Keep in mind that the perf tool requires specific permissions and capabilities to function properly. It also depends on certain kernel CONFIG options being enabled. In most cases, the stock kernel includes the necessary configurations by default.
-
-if perf command doesn't work as expected then most likely kernel is not build with required configs.  Please refer to existing manuals on how to rebuild kernel.  Make sure below configs are enabled in the .config file.
-
-```
-CONFIG_PERF_EVENTS=y
-CONFIG_FRAME_POINTER=y
-CONFIG_KALLSYMS=y
-CONFIG_TRACEPOINTS=y
-CONFIG_KPROBES=y
-CONFIG_KPROBE_EVENTS=y
-# user-level dynamic tracing:
-CONFIG_UPROBES=y
-CONFIG_UPROBE_EVENTS=y
-```
-
-The given script builds perf with ctf support.  This can be verified by checking if the --to-ctf option appears in the list of supported commands:
-
-```
-$ perf data convert --help
-  Usage: perf data convert [<options>]
-
-    -f, --force           don't complain, do it
-    -i, --input <file>    input file name
-    -v, --verbose         be more verbose
-        --all             Convert all events
-        --to-ctf ...      Convert to CTF format
-        --to-json ...     Convert to JSON format
-        --tod             Convert time to wall clock time
-
-```
-
-If --to-ctf is not listed, the following packages should be installed before rebuilding the perf tool from the kernel source:
-
-As long as the kernel headers for the target kernel are properly installed, there's no need to rebuild the entire kernel. The perf tool can be built separately by navigating to the <kernel_source>/tools/perf directory and running make, provided that all required development packages are in place.
-
-```
-<kernel src>/tools/perf $ make
-```
-
-Once the perf binary is built, it can either be copied to /usr/bin/ for system-wide access, or the current directory can be added to the PATH environment variable for convenient use.
-
-
-#### Setup probes using csv
-
-It's important to initiate Gazebo or the target process before setting up the probes. This is because the probes, as defined in the probe.csv file, rely on running target process in order to determine the absolute locations of the .so files within the system. However, if  probe.csv file contains the full paths to the .so files, running the target process prior to setting up the probes is not necessary.
-```
-ros2 launch <package> <launch command>
-```
-
-The helper functions are provided in bashfulprofiler.sh, so make sure to source it before proceeding if you haven't already.
-
-```
-source ./scripts/bashfulprofiler.sh
-```
-
-Setup probes using probe_set_csv bash function
-
-```
-$ probe_set_csv ./probes/probes.csv
-Setting probes on [/opt/ros/humble/lib/librcl.so] at symbol [ rcl_publish$]
-Address is 0x0
-Added new event:
-  probe_librcl:rclpublish_entry (on 0x0000000000021b40 in /opt/ros/humble/lib/librcl.so)
-
-You can now use it in all perf tools, such as:
-
-	perf record -e probe_librcl:rclpublish_entry -aR sleep 1
-
-Added new event:
-  probe_librcl:rclpublish__return (on 0x0000000000021b40%return in /opt/ros/humble/lib/librcl.so)
-
-You can now use it in all perf tools, such as:
-
-	perf record -e probe_librcl:rclpublish__return -aR sleep 1
-
-```
-
-#### Setup probes using lib
-
-Probes can also be set directly on .so files. Use the set_probes_lib.sh script with an optional filter to set probes. If no filter is provided, probes will be added to all exported symbols. Initially, publicly available symbols will be searched (e.g., using -T), and if no symbol is found, debug symbols will be searched (e.g., using -t).
-
-This will place entry/exit probes on all function symbols in iHD_drv_video.so that contain 'Execute(' in their names.  Note the escape '\' for special characters.
-
-```
-$ probe_set_all_from_binary /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so 'Execute\('
-```
-
-Setting up probes is typically a one-time task, unless the system is rebooted or the target binary is modified or updated. New probes are appended to the existing list, and if a probe with the same name is added again, it will be overwritten. Once configured, these probes remain available, allowing multiple capture sessions to be conducted without the need for reconfiguration. This persistence across sessions provides the flexibility to perform repeated analyses efficiently.
-
-#### Start Capturing
-
-Initiating capture using capture.sh.  Make sure target process is running (e.g gst-launch).  Default capturing duration is 8 seconds
-```
-$ trace_capture_and_convert [capture duration in seconds]
-```
-trace.html and flamegraph.svg will be in output folder and ready to be viewed in browser
-
-```
-$ <browser> ./output/trace.html ./output/flamegraph.svg
-```
-
-
-#### Remove Probes
-Once established, probes remain created (though inactive) until the system is rebooted or the associated binary is modified. It’s important to note that these probes do not consume any CPU resources unless they are actively used by a perf record session. However, if the probes are no longer needed, it’s a good practice to remove them to keep the environment clean and avoid potential conflicts. The following command can be used to remove all probes:
-```
-$ probe_remove_all
-```
 
 ## Troubleshoot
-If the number of trace samples becomes too large, loading the generated .html file in a browser may become difficult or unresponsive. In such cases, there are two practical options: either reduce the number of active trace probes or shorten the capture duration to limit the volume of collected data.
+If the number of trace samples becomes too large, loading the generated .html file in a browser may become difficult or unresponsive. In such cases, there are two practical options: 
+Either
+- Reduce the number of trace probes by adjusting symbol filter criteria.
+- Shorten the capture duration to limit the volume of collected data.
+- Remove probe with highest count to reduce capture size in subsequent run.
+
+Use below command to count by probe name in captured trace.
+```
+$ perf script -i ./output/instrace.data |  sed 's/^[ \t]*//;s/[ \t]*$//' | tr -s ' '  | awk -F'[ ]' '{print $5}' | awk -F'[:]' '{print$2}' | sort | uniq -c | sort -nr
+  42868 vaDisplayIsValid__return
+  42868 vaDisplayIsValid_entry
+  10845 vaDestroyBuffer__return
+  10845 vaDestroyBuffer_entry
+  10845 vaCreateBuffer__return
+  10845 vaCreateBuffer_entry
+  10845 DdiMediaDecode_CreateBuffer__return
+  10845 DdiMediaDecode_CreateBuffer_entry
+  10845 DdiMedia_CreateBuffer__return
+  10845 DdiMedia_CreateBuffer_entry
+  10845 DdiDecode_CreateBuffer__return
+  10845 DdiDecode_CreateBuffer_entry
+   8223 i915_gem_wait_ioctl__return
+   8223 i915_gem_wait_ioctl_entry
+```
+Once unncessarry probes are identified then either remove them from .csv by adjusting symbol filter criteria or use probe_remove call to remove entry and return probes.
+```
+$ probe_remove vaDisplayIsValid
+```
 
 Additionally, probe names have a length restriction. If issues arise while setting probes, it may help to shorten the probe names defined in the .csv file to ensure compatibility.
