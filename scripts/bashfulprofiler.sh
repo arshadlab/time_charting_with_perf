@@ -278,7 +278,7 @@ trace_capture_and_convert() {
 	elif [[ -d "./3rdparty" ]]; then
 		root_dir="$(pwd)"
 	else
-		echo "Error: PROJECT_ROOT environment variable not set and 3rdparty directory not found in current path."
+		echo "Error: TRACE_ROOT environment variable not set and 3rdparty directory not found in current path."
 		return 1
 	fi
 

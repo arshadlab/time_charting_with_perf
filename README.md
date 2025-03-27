@@ -182,7 +182,8 @@ Once established, probes remain created (though inactive) until the system is re
 $ probe_remove_all
 ```
 
-### Probe configuration file (intel_media.csv)
+### Sample probes for Intel Media driver (intel_media.csv)
+A sample recipe file, intel_media.csv, is included in this repo as a starting point for Intel Media Driver profiling. It sets up probes on all libva functions that start with va, adds probes to the media driver for symbols containing CreateBuffer, and finally, includes probes for selected functions in the i915 module.
 
 ```
 #,probe_set_csv will look into the given process to find library path from loaded .so files
