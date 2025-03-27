@@ -124,27 +124,35 @@ BashfulProfiler acts as a seamless conduit between applications and the Linux Pe
 
 ## Getting Started
 ### Installation
+
+#### Clone this repo and install dependencies
+First of all, git clone repo to local folder.
+
+```
+git clone https://github.com/arshadlab/time_charting_with_perf
+cd time_charting_with_perf
+./setup_dependency.sh
+export TRACE_ROOT=$PWD
+source ./scripts/bashfulprofiler.sh
+```
+
 #### Setup system with linux perf tool enabled
 
 The Linux Perf tool is a powerful utility for profiling and performance monitoring on Linux systems.  Here are brief steps to setup system with perf tool
 
 ##### Install perf tool
 
-Due to the necessity of perf, root access (for example, using sudo) is required.
+Due to the necessity of perf, root access (for example, using sudo) is required. Perf also need to be compiled with ctf conversion support which the default build doesn't comes with. 
+A helper script is provided in the scripts folder to download the kernel source for the current major version and compile only the perf tool. This script also installs all necessary dependencies.
+For more control, users can choose to execute the commands manually.
 
 ```
-sudo apt-get update && sudo apt-get upgrade -y
-sudo apt-get install linux-tools-common linux-tools-generic linux-tools-`uname -r`
+$ ./build_perf_with_ctf.sh
 ```
 
-Verify perf installation
-```
-perf --version
-sudo perf stat ls
-```
-Remember that the Perf tool requires certain permissions and capabilities, and it may not function correctly without them.  It requires kernel to be build with certain CONFIGs and requires sudo access to run commands.
+Keep in mind that the perf tool requires specific permissions and capabilities to function properly. It also depends on certain kernel CONFIG options being enabled. In most cases, the stock kernel includes the necessary configurations by default.
 
-if above perf command doesn't work then most likely kernel is not build with required configs.  Please refer to existing manuals on how to rebuild kernel.  Make sure below configs are enabled in the .config file.
+if perf command doesn't work as expected then most likely kernel is not build with required configs.  Please refer to existing manuals on how to rebuild kernel.  Make sure below configs are enabled in the .config file.
 
 ```
 CONFIG_PERF_EVENTS=y
@@ -158,7 +166,7 @@ CONFIG_UPROBES=y
 CONFIG_UPROBE_EVENTS=y
 ```
 
-It is also important to ensure that perf is built with CTF support enabled. This can be verified by checking if the --to-ctf option appears in the list of supported commands:
+The given script builds perf with ctf support.  This can be verified by checking if the --to-ctf option appears in the list of supported commands:
 
 ```
 $ perf data convert --help
@@ -176,17 +184,6 @@ $ perf data convert --help
 
 If --to-ctf is not listed, the following packages should be installed before rebuilding the perf tool from the kernel source:
 
-Install kernel build packages
-```
-sudo apt-get install libncurses-dev flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf
-```
-
-Install perf specific packages
-```
-sudo apt-get install libpfm4-dev elfutils libdw-dev systemtap-sdt-dev libunwind-dev libslang2-dev libcap-dev libcapstone-dev libbabeltrace-ctf-dev libtraceevent-dev libbfd-dev libperl-dev
-sudo apt-get install libbabeltrace-ctf-dev libbabeltrace-ctf1 libbabeltrace1 libbabeltrace-dev python3-babeltrace
-```
-
 As long as the kernel headers for the target kernel are properly installed, there's no need to rebuild the entire kernel. The perf tool can be built separately by navigating to the <kernel_source>/tools/perf directory and running make, provided that all required development packages are in place.
 
 ```
@@ -195,26 +192,24 @@ As long as the kernel headers for the target kernel are properly installed, ther
 
 Once the perf binary is built, it can either be copied to /usr/bin/ for system-wide access, or the current directory can be added to the PATH environment variable for convenient use.
 
-##### Clone this repo and install dependencies
 
-```
-git clone https://github.com/arshadlab/time_charting_with_perf
-cd time_charting_with_perf
-./setup_dependency.sh
-export TRACE_ROOT=$PWD
-```
-
-##### Setup probes using csv
+#### Setup probes using csv
 
 It's important to initiate Gazebo or the target process before setting up the probes. This is because the probes, as defined in the probe.csv file, rely on running target process in order to determine the absolute locations of the .so files within the system. However, if  probe.csv file contains the full paths to the .so files, running the target process prior to setting up the probes is not necessary.
 ```
 ros2 launch <package> <launch command>
 ```
 
-Setup probes using set_probes_csv.sh script
+The helper functions are provided in bashfulprofiler.sh, so make sure to source it before proceeding if you haven't already.
 
 ```
-./scripts/set_probes_csv.sh ./probes/probes.csv
+source ./scripts/bashfulprofiler.sh
+```
+
+Setup probes using probe_set_csv bash function
+
+```
+$ probe_set_csv ./probes/probes.csv
 Setting probes on [/opt/ros/humble/lib/librcl.so] at symbol [ rcl_publish$]
 Address is 0x0
 Added new event:
@@ -233,21 +228,21 @@ You can now use it in all perf tools, such as:
 
 ```
 
-##### Setup probes using lib
+#### Setup probes using lib
 
 Probes can also be set directly on .so files. Use the set_probes_lib.sh script with an optional filter to set probes. If no filter is provided, probes will be added to all exported symbols. Initially, publicly available symbols will be searched (e.g., using -T), and if no symbol is found, debug symbols will be searched (e.g., using -t).
 
 ```
-$ ./scripts/set_probes_lib.sh /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
+$ probe_set_all_from_binary /usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so
 ```
 
 Setting up probes is typically a one-time task, unless the system is rebooted or the target binary is modified or updated. New probes are appended to the existing list, and if a probe with the same name is added again, it will be overwritten. Once configured, these probes remain available, allowing multiple capture sessions to be conducted without the need for reconfiguration. This persistence across sessions provides the flexibility to perform repeated analyses efficiently.
 
-##### Start Capturing
+#### Start Capturing
 
 Initiating capture using capture.sh.  Make sure target process is running (e.g gazebo).  Default capturing duration is 8 seconds
 ```
-./scripts/capture.sh
+$ trace_capture_and_convert
 ```
 trace.html and flamegraph.svg will be in output folder and ready to be viewed in browser
 
@@ -259,7 +254,7 @@ $ <browser> ./output/trace.html ./output/flamegraph.svg
 #### Remove Probes
 Once established, probes remain created (though inactive) until the system is rebooted or the associated binary is modified. It’s important to note that these probes do not consume any CPU resources unless they are actively used by a perf record session. However, if the probes are no longer needed, it’s a good practice to remove them to keep the environment clean and avoid potential conflicts. The following command can be used to remove all probes:
 ```
-./scripts/remove_all_probes.sh
+$ probe_remove_all
 ```
 
 ## Troubleshoot
