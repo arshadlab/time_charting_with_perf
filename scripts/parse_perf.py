@@ -16,7 +16,7 @@ include_offset = False
 def parse_perf_output(perf_files):
     edges = defaultdict(int)
     call_counts = defaultdict(int)
-        
+    skip = False;
     for perf_file in perf_files:
         with open(perf_file, 'r') as file:
             current_stack = {}
@@ -24,23 +24,41 @@ def parse_perf_output(perf_files):
 
             for line in file:
                 line = line.strip()
+                if line and skip == True:
+                    continue
                 if not line:
+                    if skip == True:
+                        skip = False;
+                        continue
                     # Process the record, then reset for the next record
                     process_record(record, current_stack, edges, call_counts)
                     record = []  # Reset the record
+                    skip = False
                     continue
 
                 if ':' in line:
-                    match = re.search(r'probe:([^:]+):', line)
+                    match = re.search(r'probe(?:_[^:]*)?:([^:]+):', line)
                     if not match:
                         continue
                     function_name = match.group(1).strip()
+                    if function_name.endswith("_return"):
+                        skip =  True;
+                        continue
+                    if function_name.endswith("_entry"):
+                        function_name = function_name[:-6] #strip "_entry"
+
                 else:
-                    match = re.search(r'\s+(.*?)\+0x[0-9a-fA-F]+', line) if include_offset else re.search(r'\s+(.*?)\+0x', line)
+                    #match = re.search(r'\s+(.*?)\+0x[0-9a-fA-F]+', line) if include_offset else re.search(r'\s+(.*?)\+0x', line)
+                    if include_offset:
+                         match = re.search(r'\s+([a-zA-Z0-9_:]+)(?:\([^)]*\))?(?:\+0x([0-9a-fA-F]+))?', line)
+                    else:
+                         match = re.search(r'\s+([a-zA-Z0-9_:]+)(?:\([^)]*\))?(?:\+0x[0-9a-fA-F]+)?', line)
+
                     if not match:
                         continue
                     function_name = match.group(0).split()[-1] if include_offset else match.group(1).strip()
-
+                    if function_name.endswith("_entry"):
+                       function_name = function_name[:-6] #strip "_entry"
                 record.append(function_name)
             
             # Process any remaining record after the last line
