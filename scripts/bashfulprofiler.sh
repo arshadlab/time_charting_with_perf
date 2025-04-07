@@ -15,12 +15,13 @@
 
 # Author: Arshad Mehmood
 
+#**************************************
 # Shows loaded dynamic libraries with their paths by a process.
 # Syntax:
-#   lib_show_loaded  <process_name>> [namefilter]
-#   lib_show_loaded  gzserver rcl
-#
-lib_show_loaded() {
+#   probe_show_loaded  <process_name>> [namefilter]
+#   probe_show_loaded  gzserver rcl
+#**************************************
+probe_show_loaded() {
 	local param1=$1
 	local filter=$2
 	local pid="$param1"
@@ -42,87 +43,111 @@ lib_show_loaded() {
 	cat /proc/$pid/maps | grep '\.so' | grep "$filter" | tr -s ' ' | cut -d ' ' -f 6 | sort | uniq
 }
 
+#**************************************
 # Shows symbols exported by .so file. Includes debug symbols if present.
+# Returns Demangled name followed by mangled name per line
 # Syntax:
-#   show_lib_symbols  <lib_absolute_path> [namefilter]
-#   show_lib_symbols  /opt/ros/foxy/lib/librcl.so publish
-#
-lib_show_symbols() {
+#   probe_show_symbols  <lib_absolute_path> [namefilter]
+#   probe_show_symbols  /opt/ros/foxy/lib/librcl.so publish
+#**************************************
+probe_show_symbols() {
 	local lib_path="$1"
 	local filter="$2"
 	(
-		(objdump -j .text -C -T "$lib_path" 2>/dev/null | grep -v '\[clone' | grep -E "$filter" | tr -s ' ' | cut -d ' ' -f 1,6- ;
-		objdump -C -t "$lib_path" 2>/dev/null | grep -v '\[clone' | grep -E "$filter" | tr -s ' ' | cut -d ' ' -f 1,5- ) |
-		grep -E '^0[0-9a-fA-F]+' |
-		sort | uniq
+		#(objdump -j .text -C -T "$lib_path" 2>/dev/null | grep -v '\[clone' | grep -E "$filter" | tr -s ' ' | cut -d ' ' -f 1,6- ;
+		#objdump -C -t "$lib_path" 2>/dev/null | grep -v '\[clone' | grep -E "$filter" | tr -s ' ' | cut -d ' ' -f 1,5- ) |
+		#grep -E '^0[0-9a-fA-F]+' |
+		#sort | uniq
+
+		# Returns mangled name followed by demangled name
+		perf probe -x "$lib_path" -F --no-demangle --filter '(!__k???tab_* & !__crc_* & !*@plt)' | grep -E "$filter" | while read line; do printf "%-60s ->  %s\n" "$line" "$(echo "$line" | c++filt)"; done
 	)
 }
 
+#**************************************
 # Set probes on exported functions by a dynamic library/kernel module/executable.  probe_name could be an exported function but in case of just a string, address in hex must be provided.
 # Syntax:
-#   probe_set_all_from_binary  <lib_absolute_path> [symbol_filter] [probe_name]
+#   probe_set_from_binary  <lib_absolute_path> [symbol_filter] [probe_name]
 #
-#   probe_set_all_from_binary  /opt/ros/foxy/lib/librcl.so
-#   probe_set_all_from_binary  /opt/ros/foxy/lib/librcl.so  pub
+#   probe_set_from_binary  /opt/ros/foxy/lib/librcl.so
+#   probe_set_from_binary  /opt/ros/foxy/lib/librcl.so  pub
 #
 #   Using grep -E capability e.g \b for word boundary
-#   probe_set_all_from_binary  /opt/ros/foxy/lib/librcl.so  '\bTracking\b|\bFrame\b'
+#   probe_set_from_binary  /opt/ros/foxy/lib/librcl.so  '\bTracking\b|\bFrame\b'
 #
 #   Tips:
 #   ## Get unique names of triggered functions
 # 		$ perf script -i ./output/instrace.data |  sed 's/^[ \t]*//;s/[ \t]*$//' | tr -s ' '  | awk -F'[ ]' '{print $5}' | awk -F'[:]' '{print$2}' | sort | uniq > function.txt
+#		May use "sed 's/_entry$//'"
 #	## Or from successful probe insertion points
 # 		$ sudo perf probe -l | cut -d':' -f2  | cut -d ' ' -f1 > function.txt
-
-#
-probe_set_all_from_binary() {
+#**************************************
+probe_set_from_binary() {
 	local lib_path="$1"
 	local filter="$2"
 	# Get address and demangled symbol names, and filter only valid symbol lines
 	local symbols
-	symbols=$(lib_show_symbols "$lib_path" "$filter")
-	#symbols=$(
-	#	(objdump -j .text -C -T "$lib_path" 2>/dev/null | grep -v '\[clone' | grep -E "$filter" | tr -s ' ' | cut -d ' ' -f 1,6- ;
-	#	objdump -C -t "$lib_path" 2>/dev/null | grep -v '\[clone' | grep -E "$filter" | tr -s ' ' | cut -d ' ' -f 1,5- ) |
-	#	grep -E '^0[0-9a-fA-F]+' |
-	#	sort | uniq
-	#)
+	symbols=$(probe_show_symbols "$lib_path" "$filter")
 
+	local symbol_count=$(echo "$symbols" | wc -l)
+
+	local current_count=1
 	# Loop through each symbol line
 	echo "$symbols" | while read -r line; do
-		local address function_name
-		address=$(echo "$line" | cut -d ' ' -f 1)
-		function_name=$(echo "$line" | cut -d ' ' -f 2-)
-		function_name=$(echo "$function_name" | sed 's/::/_/g' | sed 's/(.*//')  # Replace :: with _ and function params
+		local mangled_name demangled_name
+		mangled_name=$(echo "$line" | tr -s ' ' | cut -d ' ' -f 1)
+		demangled_name=$(echo "$line" |  tr -s ' ' | cut -d ' ' -f 3-)
+		function_name=$(echo "$demangled_name" | sed 's/::/_/g' | sed 's/(.*//')  # Replace :: with _ and function params
 
-		echo "Setting probe for: $function_name at 0x$address"
-		if [[ "$library_name" == *.ko ]]; then
-			# address mode doesn't work for .ko
-			probe_set_duration "$lib_path" "$function_name" $function_name
-		else
-			probe_set_duration "$lib_path" "$function_name" "0x$address"
-		fi
-
+		echo "($current_count/$symbol_count) Setting probe for: $function_name $mangled_name"
+		probe_set_with_duration $lib_path $function_name $mangled_name
+		current_count=$((current_count + 1))
 	done
 }
 
-# Delete all probes
+#**************************************
+# Adds an entry and exit probes for a symbol
 # Syntax:
-#   probe_remove_all
-#
-probe_remove_all() {
-	sudo perf probe -d '*'
+#   probe_set_with_duration <.so path> function_name [mangled name/address]
+#**************************************
+probe_set_with_duration() {
+	local address=$3
+	local function_with_signature="$2"
+	local function_name="${function_with_signature%%(*}"
+
+	# Remove trailing underscores
+	function_name="${function_name%_}"
+
+	# Remove ALL leading underscores using a loop
+	while [[ "${function_name:0:1}" == "_" ]]; do
+		function_name="${function_name:1}"
+	done
+
+	if [[ -z "$3" ]]; then address=$2; fi
+
+	local probe_target=""
+	if [[ "$1" == *.ko ]]; then
+		probe_target="-m $1"
+	else
+		probe_target="-x $1"
+	fi
+
+	sudo perf probe -q -d ${function_name}_entry
+	local perf_cmd="sudo perf probe $probe_target --no-demangle -a ${function_name}_entry='$address'"
+	echo -e "perf command:\n\t $perf_cmd"
+	eval "$perf_cmd"
+
+	sudo perf probe -q -d ${function_name}__return
+	local perf_cmd="sudo perf probe $probe_target --no-demangle -a ${function_name}='$address%return'"
+	echo -e "perf command:\n\t $perf_cmd"
+	eval "$perf_cmd"
 }
 
-# Delete a single probe entry and exit
+#**************************************
+# Sets a single probe
 # Syntax:
-#   probe_remove  <probe_name>
-#
-probe_remove() {
-	sudo perf probe -d $1_entry
-	sudo perf probe -d $1__return
-}
-
+#   probe_set_single
+#**************************************
 probe_set_single() {
 	sudo perf probe -q -d $2
 
@@ -137,34 +162,31 @@ probe_set_single() {
 		probe_target="-x $1"
 	fi
 
-	local perf_cmd="sudo perf probe $probe_target -a $2=$address"
+	local perf_cmd="sudo perf probe $probe_target --no-demangle -a $2=$address"
 	echo -e "perf command:\n\t $perf_cmd"
 	eval "$perf_cmd"
 }
 
-probe_set_duration() {
-	local address=$3
-
-	if [[ -z "$3" ]]; then address=$2; fi
-
-	local probe_target=""
-	if [[ "$1" == *.ko ]]; then
-		probe_target="-m $1"
-	else
-		probe_target="-x $1"
-	fi
-
-	sudo perf probe -q -d $2_entry
-	local perf_cmd="sudo perf probe $probe_target -a $2_entry=$address"
-	echo -e "perf command:\n\t $perf_cmd"
-	eval "$perf_cmd"
-
-	sudo perf probe -q -d $2__return
-	local perf_cmd="sudo perf probe $probe_target -a $2=$address%return"
-	echo -e "perf command:\n\t $perf_cmd"
-	eval "$perf_cmd"
+#**************************************
+# Delete all probes
+# Syntax:
+#   probe_remove_all
+#**************************************
+probe_remove_all() {
+	sudo perf probe -d '*'
 }
 
+#**************************************
+# Delete a single probe entry and exit
+# Syntax:
+#   probe_remove  <probe_name>
+#**************************************
+probe_remove() {
+	sudo perf probe -d $1_entry
+	sudo perf probe -d $1__return
+}
+
+#**************************************
 # This bash functions reads probe requests from probe.csv and sets up entry and exit probe for request function
 # Caution: Script deletes all previous probes before proceeding. 
 # probe.csv fields: '.so name','process name','symbol filter'   (without quotes)
@@ -181,21 +203,28 @@ probe_set_duration() {
 #        cldnn::network::execute_impl() called with any arguments, ensuring it's a separate word,
 #        followed by optional whitespace and ending precisely at the line's end.
 #
+# TIPS:
+#	Extract names from .C file using ctags and add absolute path to .so for first row only.
+#		$ ctags --c-kinds=f -x --fields=+n mos_bufmgr_xe.c  | awk '{print ",," $1}' > function.csv
 # $ probe_set_csv probes.csv
 #
 # If the .so names are not absolute paths, the process name must include the process that utilizes
 # these .so files, and /proc/pid/maps is used to determine their absolute paths. Therefore, the
 # process must be active during the execution of the probe_set_csv script. This requirement
 # is unnecessary when all .so names are provided as absolute paths.
-#
-probe_set_csv() {
+#**************************************
+probe_set_from_csv() {
 	probe_file=$1
 	# Initialize previous_process_name outside the loop
 	previous_process_name=""
 	previous_library_name=""
 
+	local line_count=$(wc -l < "$probe_file")
+	local current_line=0
 	while IFS=, read -r library_name process_name symbol_filter
 	do
+		current_line=$((current_line + 1))
+
 		# Skip completely empty lines
 		if [[ -z "$library_name" && -z "$process_name" && -z "$symbol_filter" ]]; then
 			continue
@@ -212,6 +241,8 @@ probe_set_csv() {
 			continue
 		fi
 
+		library_path=$library_name
+
 		# Direct probe call for kernel modules.  no symbol search supported
 		if [[ "$library_name" == *.ko ]]; then
 
@@ -222,12 +253,7 @@ probe_set_csv() {
 				continue
 			fi
 
-			probe_set_all_from_binary $full_path $symbol_filter
-			continue
-		fi
-
-		library_path=$library_name
-		if ! [[ "$library_name" =~ ^/ ]]; then
+		elif ! [[ "$library_name" =~ ^/ ]]; then
 			# Use previous process_name if the current one is empty
 			if [ -z "$process_name" ] && [ -n "$previous_process_name" ]; then
 				process_name=$previous_process_name
@@ -253,17 +279,19 @@ probe_set_csv() {
 			fi
 		fi
 
-		probe_set_all_from_binary $library_path $symbol_filter
+	printf "(%d/%d) Processing Line: %s, %s, %s\n" "$current_line" "$line_count" "$library_name" "$process_name" "$symbol_filter"
+		probe_set_from_binary $library_path $symbol_filter
 
 	done < "$probe_file"
 }
 
+#**************************************
 # This bash funtion captures perf events from already added probes
 # A process name or pid can be given to capture events for that process only. Otherwise system wide events are captured
 #    trace_capture_and_convert [duration] [processname|pid]
 #    trace_capture_and_convert 8 gzserver
 #    trace_capture_and_convert 4
-#
+#**************************************
 trace_capture_and_convert() {
 	local root_dir
 	#root_dir=$(dirname "$(dirname "$(realpath "$0")")")
@@ -315,7 +343,7 @@ trace_capture_and_convert() {
 	mkdir -p "$OUTPUT_DIR"
 	rm -rf "$OUTPUT_DIR"/*
 
-	sudo bash -c "perf record $p_cmd -B --namespaces -m 2048 -r50 -e probe*:* -o $OUTPUT_DIR/instrace.data -aR sleep $capture_duration > /dev/null 2>&1" &
+	sudo bash -c "perf record $p_cmd --running-time --timestamp-boundary -B --namespaces -m 2048 -r50 -e probe*:* -o $OUTPUT_DIR/instrace.data -aR sleep $capture_duration > /dev/null 2>&1" &
 	sudo bash -c "perf record $p_cmd -B --namespaces -m 2048 -F 1000 -r50 -o $OUTPUT_DIR/systrace.data -g -aR sleep $capture_duration > /dev/null 2>&1"
 
 	stty sane
