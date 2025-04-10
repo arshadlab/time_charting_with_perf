@@ -15,6 +15,9 @@
 
 # Author: Arshad Mehmood
 
+# Set TRACE_ROOT to repo root folder.
+export TRACE_ROOT=$(dirname $(dirname "${BASH_SOURCE[0]}"))
+
 #**************************************
 # Shows loaded dynamic libraries with their paths by a process.
 # Syntax:
