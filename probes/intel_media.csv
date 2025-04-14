@@ -3,17 +3,63 @@
 
 #,Header: ".so name","process name","symbol filter"
 # Add probes to libva's publically exported symbols.
-/usr/lib/x86_64-linux-gnu/libva.so.2.2200.0,,va
+/usr/lib/x86_64-linux-gnu/libva.so.2.2300.0,,va
 
 # Add probes to media driver's symbols with CreateBuffer keyword inside.  Need to build with -g else will not hit any
-/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,CreateBuffer
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaInterfaceNext::CreateBuffer
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,DdiDecodeFunctions::CreateBuffer
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,DdiDecodeBase::CreateBuffer
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaInterfaceNext::DeriveImage
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaInterfaceNext::CreateImage
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaUtilNext::AllocPMediaBufferFromHeap
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaInterfaceNext::DestroyBufFromVABufferID
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,DdiMediaFunctions::DestroyBuffer
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,DdiDecodeFunctions::DestroyBuffer
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaInterface::DestroyBuffer
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaInterfaceNext::DestroyBuffer
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,DdiMediaFunctions::DestroyImage
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaUtilNext::ReleasePMediaBufferFromHeap
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,DdiDecodeBase::AllocBsBuffer
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaCommonNext::GetBufferFromVABufferID
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaCommonNext::GetCtxTypeFromVABufferID
+,,CmdBufMgrNext::PickupOneCmdBuf
+,,CommandBufferNext::CreateCmdBuf
+,,GraphicsResourceSpecificNext::Allocate
+,,mos_bo_alloc
+,,HevcPipeline::Execute
+,,DecodePipeline::ExecuteActivePackets
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,AllocSliceControlBuffer
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaUtilNext::LockBuffer
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,MediaLibvaUtilNext::CreateBuffer
+,,DdiDecodeFunctions::EndPicture
+,,DdiDecodeBase::EndPicture
+,,HevcPipelineXe_Lpm_Plus_Base::Execute
+,,DecodeSubPipelineManager::ExecuteSubPipeline
+,,DecodeHevcPipelineAdapterXe2_Hpm::Execute
+,,DecodeHevcPipelineAdapterXe2_Hpm::EndFrame
+
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,mos_bo_wait_rendering
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,mos_bo_busy
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,mos_gem_bo_busy_xe
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,mos_bo_map_xe
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,mos_gem_bo_wait_timeline_rendering_with_flags_xe
+
+
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,LockBufferMutex
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,UnLockBufferMutex
+
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,mos_gem_lock
+/usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so,,mos_gem_unlock
+
+
+xe.ko,,xe_bo_lock
+,,xe_bo_unlock
+,,ops_execute
 
 # Add probe to i915 execbuffer call.  Xe probes can be added accordingly.
-i915.ko,,\bi915_gem_do_execbuffer$
-i915.ko,,\bi915_gem_wait_ioctl$
-i915.ko,,\bi915_request_wait$
-i915.ko,,\bi915_request_wait_timeout$
-i915.ko,,\bflush_submission$
-
-
+#i915.ko,,\bi915_gem_do_execbuffer$
+#i915.ko,,\bi915_gem_wait_ioctl$
+#i915.ko,,\bi915_request_wait$
+#i915.ko,,\bi915_request_wait_timeout$
+#i915.ko,,\bflush_submission$
 
