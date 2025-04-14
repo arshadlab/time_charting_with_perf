@@ -54,17 +54,30 @@ probe_show_loaded() {
 #   probe_show_symbols  /opt/ros/foxy/lib/librcl.so publish
 #**************************************
 probe_show_symbols() {
-	local lib_path="$1"
-	local filter="$2"
-	(
-		#(objdump -j .text -C -T "$lib_path" 2>/dev/null | grep -v '\[clone' | grep -E "$filter" | tr -s ' ' | cut -d ' ' -f 1,6- ;
-		#objdump -C -t "$lib_path" 2>/dev/null | grep -v '\[clone' | grep -E "$filter" | tr -s ' ' | cut -d ' ' -f 1,5- ) |
-		#grep -E '^0[0-9a-fA-F]+' |
-		#sort | uniq
+    local lib_path="$1"
+    local filter="$2"
 
-		# Returns mangled name followed by demangled name
-		perf probe -x "$lib_path" -F --no-demangle --filter '(!__k???tab_* & !__crc_* & !*@plt)' | grep -E "$filter" | while read line; do printf "%-60s ->  %s\n" "$line" "$(echo "$line" | c++filt)"; done
-	)
+    if [[ "$filter" == *"::"* ]]; then
+        # Filter contains ::, so search demangled names efficiently
+        perf probe -x "$lib_path" -F --no-demangle --filter '(!__k???tab_* & !__crc_* & !*@plt)' |
+        while IFS= read -r mangled_name; do
+            printf "%s\n" "$mangled_name"
+        done |
+        c++filt |
+        paste -d '\t' - <(perf probe -x "$lib_path" -F --no-demangle --filter '(!__k???tab_* & !__crc_* & !*@plt)') |
+        while IFS=$'\t' read -r demangled_name mangled_name_2; do
+            if [[ "$demangled_name" == *"$filter"* ]]; then
+                printf "%-60s -> %s\n" "$mangled_name_2" "$demangled_name"
+            fi
+        done
+    else
+        # Filter is a plain name, so search mangled names directly
+        perf probe -x "$lib_path" -F --no-demangle --filter '(!__k???tab_* & !__crc_* & !*@plt)' | grep -E "$filter" |
+			while IFS= read -r mangled_name; do
+				demangled_name=$(echo "$mangled_name" | c++filt)
+				printf "%-60s -> %s\n" "$mangled_name" "$demangled_name"
+			done
+    fi
 }
 
 #**************************************
@@ -82,6 +95,9 @@ probe_show_symbols() {
 #   ## Get unique names of triggered functions
 # 		$ perf script -i ./output/instrace.data |  sed 's/^[ \t]*//;s/[ \t]*$//' | tr -s ' '  | awk -F'[ ]' '{print $5}' | awk -F'[:]' '{print$2}' | sort | uniq > function.txt
 #		May use "sed 's/_entry$//'"
+#	# Get count of each function
+# 		$ sudo perf script |  sed 's/^[ \t]*//;s/[ \t]*$//' | tr -s ' '  | awk -F'[ ]' '{print $5}' | awk -F'[:]' '{print$2}' | sort | uniq -c | sort -nr
+
 #	## Or from successful probe insertion points
 # 		$ sudo perf probe -l | cut -d':' -f2  | cut -d ' ' -f1 > function.txt
 #**************************************
@@ -138,11 +154,13 @@ probe_set_with_duration() {
 	sudo perf probe -q -d ${function_name}_entry
 	local perf_cmd="sudo perf probe $probe_target --no-demangle -a ${function_name}_entry='$address'"
 	echo -e "perf command:\n\t $perf_cmd"
+	echo $perf_cmd >> perf_cmd.sh
 	eval "$perf_cmd"
 
 	sudo perf probe -q -d ${function_name}__return
 	local perf_cmd="sudo perf probe $probe_target --no-demangle -a ${function_name}='$address%return'"
 	echo -e "perf command:\n\t $perf_cmd"
+	echo $perf_cmd >> perf_cmd.sh
 	eval "$perf_cmd"
 }
 
@@ -222,6 +240,9 @@ probe_set_from_csv() {
 	previous_process_name=""
 	previous_library_name=""
 
+	# Add info to perf command log file.
+	echo -e "\n# Adding probes from $probe_file\n" >> perf_cmd.sh
+
 	local line_count=$(wc -l < "$probe_file")
 	local current_line=0
 	while IFS=, read -r library_name process_name symbol_filter
@@ -250,8 +271,8 @@ probe_set_from_csv() {
 		if [[ "$library_name" == *.ko ]]; then
 
 			# Use modinfo to get the full path of the kernel module
-			full_path=$(modinfo -n -m "$library_name")
-			if [ -z "$full_path" ]; then
+			library_path=$(modinfo -n -m "$library_name")
+			if [ -z "$library_path" ]; then
 				echo "Error: Could not find full path for kernel module $library_name"
 				continue
 			fi
@@ -282,8 +303,8 @@ probe_set_from_csv() {
 			fi
 		fi
 
-	printf "(%d/%d) Processing Line: %s, %s, %s\n" "$current_line" "$line_count" "$library_name" "$process_name" "$symbol_filter"
-		probe_set_from_binary $library_path $symbol_filter
+        printf "(%d/%d) Processing Line: %s,%s,%s\n" "$current_line" "$line_count" "$library_name" "$process_name" "$symbol_filter"
+	probe_set_from_binary $library_path $symbol_filter
 
 	done < "$probe_file"
 }
