@@ -16,7 +16,9 @@
 # Author: Arshad Mehmood
 
 # Set TRACE_ROOT to repo root folder.
-export TRACE_ROOT=$(dirname $(dirname "${BASH_SOURCE[0]}"))
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TRACE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 
 #**************************************
 # Shows loaded dynamic libraries with their paths by a process.
@@ -54,30 +56,31 @@ probe_show_loaded() {
 #   probe_show_symbols  /opt/ros/foxy/lib/librcl.so publish
 #**************************************
 probe_show_symbols() {
-    local lib_path="$1"
-    local filter="$2"
+	local lib_path="$1"
+	local filter="$2"
+	local probe_filter="(!__k???tab_* & !__crc_* & !__* & !*@plt)"
 
-    if [[ "$filter" == *"::"* ]]; then
-        # Filter contains ::, so search demangled names efficiently
-        perf probe -x "$lib_path" -F --no-demangle --filter '(!__k???tab_* & !__crc_* & !*@plt)' |
-        while IFS= read -r mangled_name; do
-            printf "%s\n" "$mangled_name"
-        done |
-        c++filt |
-        paste -d '\t' - <(perf probe -x "$lib_path" -F --no-demangle --filter '(!__k???tab_* & !__crc_* & !*@plt)') |
-        while IFS=$'\t' read -r demangled_name mangled_name_2; do
-            if [[ "$demangled_name" == *"$filter"* ]]; then
-                printf "%-60s -> %s\n" "$mangled_name_2" "$demangled_name"
-            fi
-        done
-    else
-        # Filter is a plain name, so search mangled names directly
-        perf probe -x "$lib_path" -F --no-demangle --filter '(!__k???tab_* & !__crc_* & !*@plt)' | grep -E "$filter" |
+	if [[ "$filter" == *"::"* ]]; then
+		# Filter contains ::, so search demangled names efficiently
+		perf probe -x "$lib_path" -F --no-demangle --filter "$probe_filter" | sort | uniq |
+		while IFS= read -r mangled_name; do
+			printf "%s\n" "$mangled_name"
+		done |
+		c++filt |
+		paste -d '\t' - <(perf probe -x "$lib_path" -F --no-demangle --filter "$probe_filter") |
+		while IFS=$'\t' read -r demangled_name mangled_name_2; do
+			if [[ "$demangled_name" == *"$filter"* ]]; then
+				printf "%-60s -> %s\n" "$mangled_name_2" "$demangled_name"
+			fi
+		done
+	else
+		# Filter is a plain name, so search mangled names directly
+		perf probe -x "$lib_path" -F --no-demangle --filter "$probe_filter" | sort | uniq | grep -E "$filter" |
 			while IFS= read -r mangled_name; do
 				demangled_name=$(echo "$mangled_name" | c++filt)
 				printf "%-60s -> %s\n" "$mangled_name" "$demangled_name"
 			done
-    fi
+	fi
 }
 
 #**************************************
@@ -209,7 +212,7 @@ probe_remove() {
 
 #**************************************
 # This bash functions reads probe requests from probe.csv and sets up entry and exit probe for request function
-# Caution: Script deletes all previous probes before proceeding. 
+#
 # probe.csv fields: '.so name','process name','symbol filter'   (without quotes)
 # No space before and after commas. Process name from previous rows will be used if none given for non absolute lib names.
 # Sample csv format:
@@ -250,9 +253,12 @@ probe_set_from_csv() {
 		current_line=$((current_line + 1))
 
 		# Skip completely empty lines
-		if [[ -z "$library_name" && -z "$process_name" && -z "$symbol_filter" ]]; then
+		if [[ ( -z "$library_name" && -z "$process_name" && -z "$symbol_filter" ) || \
+			  ( "$library_name" == \#* ) ]]; then
+			echo "Skipping empty line $current_line"
 			continue
 		fi
+
 		# Use previous process_name if the current one is empty
 		if [ -z "$library_name" ] && [ -n "$previous_library_name" ]; then
 			library_name=$previous_library_name
@@ -262,6 +268,7 @@ probe_set_from_csv() {
 
 		# Skip empty and commented rows
 		if [ -z "$previous_library_name" ] || [[ "$previous_library_name" =~ ^# ]]; then
+			echo "Skipping empty or commented line $current_line"
 			continue
 		fi
 
@@ -303,8 +310,25 @@ probe_set_from_csv() {
 			fi
 		fi
 
-        printf "(%d/%d) Processing Line: %s,%s,%s\n" "$current_line" "$line_count" "$library_name" "$process_name" "$symbol_filter"
-	probe_set_from_binary $library_path $symbol_filter
+		printf "(%d/%d) Processing Line: %s,%s,%s\n" "$current_line" "$line_count" "$library_name" "$process_name" "$symbol_filter"
+		probe_set_from_binary $library_path $symbol_filter
+
+	done < "$probe_file"
+}
+
+#**************************************
+# This bash functions removes probe listed in csv file
+#**************************************
+probe_remove_from_csv() {
+	probe_file=$1
+
+	local line_count=$(wc -l < "$probe_file")
+	local current_line=0
+	while IFS=, read -r library_name process_name symbol_filter
+	do
+		current_line=$((current_line + 1))
+		printf "(%d/%d) Processing Line: %s\n" "$current_line" "$line_count" "$symbol_filter"
+		probe_remove $symbol_filter
 
 	done < "$probe_file"
 }
@@ -367,8 +391,8 @@ trace_capture_and_convert() {
 	mkdir -p "$OUTPUT_DIR"
 	rm -rf "$OUTPUT_DIR"/*
 
-	sudo bash -c "perf record $p_cmd --running-time --timestamp-boundary -B --namespaces -m 2048 -r50 -e probe*:* -o $OUTPUT_DIR/instrace.data -aR sleep $capture_duration > /dev/null 2>&1" &
-	sudo bash -c "perf record $p_cmd -B --namespaces -m 2048 -F 1000 -r50 -o $OUTPUT_DIR/systrace.data -g -aR sleep $capture_duration > /dev/null 2>&1"
+	sudo bash -c "set -x; perf record $p_cmd --running-time --timestamp-boundary -B --namespaces -m 2048 -r50 -e probe*:* -o $OUTPUT_DIR/instrace.data -aR sleep $capture_duration > /dev/null 2>&1" &
+	sudo bash -c "set -x; perf record $p_cmd -B --namespaces -m 2048 -F 1000 -r50 -o $OUTPUT_DIR/systrace.data -g -aR sleep $capture_duration > /dev/null 2>&1"
 
 	stty sane
 	while pgrep -x "perf" > /dev/null; do
@@ -383,15 +407,24 @@ trace_capture_and_convert() {
 	USER=$(whoami)
 	sudo chown "$USER:$USER" "$OUTPUT_DIR"/*.data
 
+	set -x
 	perf data -i "$OUTPUT_DIR/systrace.data" convert --to-ctf "$OUTPUT_DIR/systrace_data"
 	perf data -i "$OUTPUT_DIR/instrace.data" convert --to-ctf "$OUTPUT_DIR/instrace_data"
+	{ set +x; } 2>/dev/null
+
 	echo "CTF conversion completed"
 
+	set -x
 	"$thirdparty/ctf2ctf/build/ctf2ctf" "$OUTPUT_DIR/systrace_data/" $ctf_cmd > "$OUTPUT_DIR/systrace.json"
 	"$thirdparty/ctf2ctf/build/ctf2ctf" "$OUTPUT_DIR/instrace_data/" $ctf_cmd > "$OUTPUT_DIR/instrace.json"
+	{ set +x; } 2>/dev/null
+
 	echo "JSON conversion completed"
 
+	set -x
 	"$thirdparty/catapult/tracing/bin/trace2html" "$OUTPUT_DIR/systrace.json" "$OUTPUT_DIR/instrace.json" --output "$OUTPUT_DIR/trace.html" --config full
+	{ set +x; } 2>/dev/null
+
 	echo "HTML conversion completed"
 
 	if [ -f "$thirdparty/FlameGraph/stackcollapse-perf.pl" ]; then

@@ -7,6 +7,10 @@
 
 # Kernel mode driver.  i915.ko
 i915.ko,,\bi915_gem_do_execbuffer
-i915.ko,,\bii915_gem_wait_ioctl
-i915.ko,,\bi915_request_wait_timeout
-i915.ko,,\bflush_submission
+,,\bii915_gem_wait_ioctl
+,,\bi915_request_wait_timeout
+,,\bflush_submission
+,,\bi915_gem_mmap_ioctl
+,,\bi915_gem_busy_ioctl
+,,\bi915_gem_execbuffer2_ioctl
+,,\bi915_gem_create_ioctl

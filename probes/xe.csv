@@ -1,0 +1,28 @@
+#,probe_set_csv will look into the given process to find library path from loaded .so files
+#,If absolute path is given then process name is ignored.
+
+#,Header: ".so name","process name","symbol filter"
+# Add probes to xe publically exported symbols.
+xe.ko,,event_xe_pm_runtime_get_ioctl
+,,intel_get_pipe_from_crtc_id_ioctl
+,,vm_bind_ioctl_ops_execute
+,,xe_drm_compat_ioctl
+,,xe_exec_ioctl
+,,xe_exec_queue_create_ioctl
+,,xe_exec_queue_destroy_ioctl
+,,xe_exec_queue_get_property_ioctl
+,,xe_gem_create_ioctl
+,,xe_gem_mmap_offset_ioctl
+,,xe_ioctls
+,,xe_oa_add_config_ioctl
+,,xe_oa_ioctl
+,,xe_oa_ioctl.cold
+,,xe_oa_remove_config_ioctl
+,,xe_oa_stream_open_ioctl
+,,xe_observation_ioctl
+,,xe_pm_runtime_get_ioctl
+,,xe_query_ioctl
+,,xe_vm_bind_ioctl
+,,xe_vm_create_ioctl
+,,xe_vm_destroy_ioctl
+,,xe_wait_user_fence_ioctl

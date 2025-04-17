@@ -1,0 +1,31 @@
+#,probe_set_csv will look into the given process to find library path from loaded .so files
+#,If absolute path is given then process name is ignored.
+
+#,Header: ".so name","process name","symbol filter"
+# Add probes to libva's publically exported symbols.
+/usr/local/lib/libva.so,,vaCreateBuffer
+,,vaInitialize
+,,vaCreateConfig
+,,vaCreateSurfaces$
+,,vaCreateBuffer
+,,vaCreateContext
+,,vaCreateImage
+,,vaGetImage
+,,vaBeginPicture
+,,vaRenderPicture
+,,vaEndPicture
+,,vaSyncBuffer
+,,vaSyncSurface
+,,vaLockSurface
+,,vaMapBuffer
+,,vaUnmapBuffer
+,,vaUnlockSurface
+,,vaPutImage
+,,vaReleaseBufferHandle
+,,vaDeriveImage
+,,vaDestroyImage
+,,vaDestroyBuffer
+,,vaDestroyConfig
+,,vaDestroyContext
+,,vaDestroySurfaces
+,,vaTerminate

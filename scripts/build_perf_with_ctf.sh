@@ -19,7 +19,7 @@ if [ -d "linux-src" ]; then
     echo "Using existing linux-src directory. If running kernel version is changed then remove this directory for updated code"
 else
     echo "Cloning perf tool sources for v$KERNEL_MAJOR ..."
-    git clone --depth=1 --branch v$KERNEL_VERSION https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git linux-src
+    git clone --depth=1 --branch v$KERNEL_MAJOR https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git linux-src
 fi
 cd linux-src/tools/perf
 
