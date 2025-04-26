@@ -5,15 +5,13 @@ set -e  # Exit on error
 # Install dependencies
 echo "Installing required packages..."
 sudo apt update
-sudo apt-get install libncurses-dev flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf
-sudo apt-get install libpfm4-dev elfutils libdw-dev systemtap-sdt-dev libunwind-dev libslang2-dev libcap-dev libcapstone-dev libbabeltrace-ctf-dev libtraceevent-dev libbfd-dev libperl-dev
-sudo apt-get install libbabeltrace-ctf-dev libbabeltrace-ctf1 libbabeltrace1 libbabeltrace-dev python3-babeltrace
+sudo apt-get install -y libncurses-dev flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf
+sudo apt-get install -y libpfm4-dev elfutils libdw-dev systemtap-sdt-dev libunwind-dev libslang2-dev libcap-dev libcapstone-dev libbabeltrace-ctf-dev libtraceevent-dev libbfd-dev libperl-dev
+sudo apt-get install -y libbabeltrace-ctf-dev libbabeltrace-ctf1 libbabeltrace1 libbabeltrace-dev python3-babeltrace libtracefs-dev libbabeltrace2-dev
 
 # Get the current kernel version
 KERNEL_VERSION=$(uname -r)
 KERNEL_MAJOR=$(echo "$KERNEL_VERSION" | cut -d. -f1,2)
-
-# Clone only the perf tool directory
 
 if [ -d "linux-src" ]; then
     echo "Using existing linux-src directory. If running kernel version is changed then remove this directory for updated code"
@@ -26,7 +24,7 @@ cd linux-src/tools/perf
 # Build perf with CTF support
 echo "Building perf with CTF support..."
 make clean
-make -j$(nproc) LDFLAGS=-lbabeltrace2
+make -j$(nproc) EXTRA_CFLAGS="-I/usr/include/x86_64-linux-gnu" EXTRA_LDFLAGS='-L /usr/lib/x86_64-linux-gnu/ -lbabeltrace2'
 
 # Check if the build was successful
 if [ -f "./perf" ]; then
