@@ -56,31 +56,37 @@ probe_show_loaded() {
 #   probe_show_symbols  /opt/ros/foxy/lib/librcl.so publish
 #**************************************
 probe_show_symbols() {
-	local lib_path="$1"
-	local filter="$2"
-	local probe_filter="(!__k???tab_* & !__crc_* & !__* & !*@plt)"
+    local lib_path="$1"
+    local filter="$2"
+    local probe_filter='(!__k???tab_* & !__crc_* & !__* & !*@plt)'
 
-	if [[ "$filter" == *"::"* ]]; then
-		# Filter contains ::, so search demangled names efficiently
-		perf probe -x "$lib_path" -F --no-demangle --filter "$probe_filter" | sort | uniq |
-		while IFS= read -r mangled_name; do
-			printf "%s\n" "$mangled_name"
-		done |
-		c++filt |
-		paste -d '\t' - <(perf probe -x "$lib_path" -F --no-demangle --filter "$probe_filter") |
-		while IFS=$'\t' read -r demangled_name mangled_name_2; do
-			if [[ "$demangled_name" == *"$filter"* ]]; then
-				printf "%-60s -> %s\n" "$mangled_name_2" "$demangled_name"
-			fi
-		done
-	else
-		# Filter is a plain name, so search mangled names directly
-		perf probe -x "$lib_path" -F --no-demangle --filter "$probe_filter" | sort | uniq | grep -E "$filter" |
-			while IFS= read -r mangled_name; do
-				demangled_name=$(echo "$mangled_name" | c++filt)
-				printf "%-60s -> %s\n" "$mangled_name" "$demangled_name"
-			done
-	fi
+    if [[ -z "$lib_path" ]]; then
+        echo "Usage: probe_show_symbols <lib_absolute_path> [regex_filter]" >&2
+        return 1
+    fi
+
+    # Capture all exported symbols once
+    local symbols
+    symbols=$(perf probe -x "$lib_path" -F --no-demangle --filter "$probe_filter" 2>/dev/null | sort -u)
+    if [[ -z "$symbols" ]]; then
+        echo "No symbols found or failed to read from $lib_path" >&2
+        return 1
+    fi
+
+    # Demangle all symbols in one go
+    local demangled
+    demangled=$(echo "$symbols" | c++filt)
+
+    # Join mangled and demangled results line by line
+    paste <(echo "$demangled") <(echo "$symbols") | while IFS=$'\t' read -r demangled_name mangled_name; do
+        # If filter empty → show all
+        if [[ -z "$filter" ]]; then
+            printf "%-80s -> %s\n" "$mangled_name" "$demangled_name"
+        # Use regex matching
+        elif [[ $demangled_name =~ $filter ]] || [[ $mangled_name =~ $filter ]]; then
+            printf "%-80s -> %s\n" "$mangled_name" "$demangled_name"
+        fi
+    done
 }
 
 #**************************************

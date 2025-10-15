@@ -5,8 +5,8 @@
 #, If absolute path is given then process name is ignored.
 #, Below probes assume openvino plugins are compiled with debug symbols included (e.g -g).
 # GPU
-libopenvino_intel_gpu_plugin.so,benchmark_app,\bov::intel_gpu::SyncInferRequest::infer\(\)\s*$
-libopenvino_intel_gpu_plugin.so,,\bov::intel_gpu::Plugin::compile_model\(.*\)
+libopenvino_intel_gpu_plugin.so,benchmark_app,\bov::[A-Za-z0-9_]+::infer\(\)\s*$
+libopenvino_intel_gpu_plugin.so,,\bov::intel_gpu::[A-Za-z0-9_]+::compile_model\(.*\)
 libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::enqueue\(\)\s*$
 libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::wait\(\)\s*$
 libopenvino_intel_gpu_plugin.so,,\bcldnn::network::execute_impl\(.*\)$
