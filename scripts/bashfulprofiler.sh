@@ -8,7 +8,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export TRACE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-
+declare -Ag NAME_INDEX=()
 ############################################################
 # Show loaded libraries from a process
 ############################################################
@@ -77,6 +77,50 @@ probe_show_symbols() {
 }
 
 ############################################################
+# Generate unique name.  Append index to the name
+############################################################
+get_unique_name() {
+    local base="$1"
+    local __outvar="$2"
+
+    if ! [[ -v NAME_INDEX["$base"] ]]; then
+        NAME_INDEX["$base"]=0
+        printf -v "$__outvar" "%s" "$base"
+        return
+    fi
+
+    NAME_INDEX["$base"]=$(( NAME_INDEX["$base"] + 1 ))
+    printf -v "$__outvar" "%s" "${base}_${NAME_INDEX[$base]}"
+}
+
+############################################################
+# Make the name shorten e.g template based names.
+############################################################
+shorten_templates() {
+    local input="$1"
+
+    # Extract template arguments
+    local tmpl
+    tmpl=$(echo "$input" | sed -n 's/.*<\([^>]*\)>.*/\1/p')
+
+    if [[ -n "$tmpl" ]]; then
+        # Convert "a, b, c_xyz" → initials "a b c"
+        local initials
+        initials=$(echo "$tmpl" \
+            | tr ',' '\n' \
+            | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+            | sed 's/\([A-Za-z0-9]\).*/\1/' \
+            | tr -d '\n'
+        )
+
+        # Replace template with initials
+        echo "$input" | sed -E "s/<[^>]*>/_${initials}_/"
+    else
+        echo "$input"
+    fi
+}
+
+############################################################
 # Set probes from a binary based on symbol filter
 ############################################################
 probe_set_from_binary() {
@@ -96,8 +140,17 @@ probe_set_from_binary() {
 	local current=1
 	echo "$symbols" | while read -r mangled demangled; do
 		local function_name
-		function_name=$(echo "$demangled" | sed 's/::/_/g' | sed 's/(.*//')
-
+		raw_name=$(echo "$demangled" \
+		    | sed 's/<[^>]*>//g' \
+		    | sed 's/::/_/g' \
+		    | sed 's/(.*//' \
+		    | sed 's/[<>]/_/g' \
+		    | sed 's/,/_/g' \
+		    | sed 's/[[:space:]]//g' \
+		    | sed 's/__*/_/g'
+		)
+		# Get unique safe name
+		get_unique_name "$raw_name" function_name
 		echo "($current/$symbol_count) Setting probe for: $function_name ($mangled)" >&2
 
 		probe_set_with_duration "$lib_path" "$function_name" "$mangled"
@@ -132,13 +185,19 @@ probe_set_with_duration() {
 	sudo perf probe -q -d "${function_name}_entry"
 	local cmd1="sudo perf probe $target --no-demangle -a ${function_name}_entry='$addr'"
 	echo "$cmd1" >&2
+
+	# Log file (append only)
+	local log_file="perf_cmd.sh"
+	echo "$cmd1" >> "$log_file"
 	eval "$cmd1"
 
 	# RETURN probe
 	sudo perf probe -q -d "${function_name}__return"
 	local cmd2="sudo perf probe $target --no-demangle -a ${function_name}='$addr%return'"
 	echo "$cmd2" >&2
+	echo "$cmd2" >> "$log_file"
 	eval "$cmd2"
+	echo "" >> "$log_file"
 }
 
 ############################################################
@@ -181,7 +240,7 @@ probe_set_from_csv() {
 	local previous_process_name=""
 	local previous_library_name=""
 
-	echo -e "\n# Adding probes from $probe_file\n" >> perf_cmd.sh
+	echo -e "\n# Adding probes from $probe_file\n" > perf_cmd.sh
 
 	local line_count
 	line_count=$(wc -l < "$probe_file")
@@ -231,6 +290,7 @@ probe_set_from_csv() {
 
 	done < "$probe_file"
 }
+
 
 ############################################################
 # Remove probes from CSV
