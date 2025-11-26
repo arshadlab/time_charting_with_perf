@@ -1,5 +1,5 @@
 #,Header: ".so name","process name","symbol filter"
-#,ROS2 libraries
+#,ROS2 humble libraries & Gazebo classic
 #,set_probes_csv.sh will look into the given process to find library path from loaded .so files
 #,If absolute path is given then process name is ignored.
 

@@ -1,20 +1,13 @@
 #, Header: ".so name","process name","symbol filter","probe name"
 #, No space before and after commas
-#, Openvino library with debug symbol included
+#, Openvino library with debug symbol included.  OV 2024.6.0
 #, set_probes_csv.sh will look into the given process to find library path from loaded .so files
 #, If absolute path is given then process name is ignored.
 #, Below probes assume openvino plugins are compiled with debug symbols included (e.g -g).
 # GPU
-libopenvino_intel_gpu_plugin.so,benchmark_app,\bov::[A-Za-z0-9_]+::infer\(\)\s*$
-libopenvino_intel_gpu_plugin.so,,\bov::intel_gpu::[A-Za-z0-9_]+::compile_model\(.*\)
-libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::enqueue\(\)\s*$
-libopenvino_intel_gpu_plugin.so,,ov::intel_gpu::SyncInferRequest::wait\(\)\s*$
-libopenvino_intel_gpu_plugin.so,,\bcldnn::network::execute_impl\(.*\)$
-libopenvino_intel_gpu_plugin.so,,\bcldnn::ocl::ocl_stream::flush\(\)\sconst$
-libopenvino_intel_gpu_plugin.so,,\bcldnn::ocl::typed_primitive_impl_ocl<.*>::execute_impl
-libopenvino_intel_gpu_plugin.so,,\bcldnn::onednn::typed_primitive_onednn_impl<.*>::build_primitive
-libopenvino_intel_gpu_plugin.so,,\bcldnn::onednn::typed_primitive_onednn_impl<.*>::execute_impl
-libopenvino_auto_batch_plugin.so,,\bov::autobatch_plugin::Plugin::compile_model\(.*\)
-# CPU
-libopenvino_intel_cpu_plugin.so,benchmark_app,\bov::intel_cpu::SyncInferRequest::infer\(\)\s*$
-libopenvino_intel_cpu_plugin.so,,\bov::intel_cpu::Plugin::compile_model\(.*\)
+libopenvino_intel_gpu_plugin.so,benchmark_app,\bov::([A-Za-z0-9_]+::)*infer\(\)\s*$
+libopenvino_intel_gpu_plugin.so,,\bov::([A-Za-z0-9_]+::)*compile_model\(.*\)
+libopenvino_intel_gpu_plugin.so,,ov::([A-Za-z0-9_]+::)*enqueue\(\)\s*$
+libopenvino_intel_gpu_plugin.so,,ov::([A-Za-z0-9_]+::)*wait\(\)\s*$
+
+
