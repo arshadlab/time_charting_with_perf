@@ -353,7 +353,7 @@ trace_capture_and_convert() {
 	mkdir -p "$OUTPUT_DIR"
 	rm -rf "$OUTPUT_DIR"/*
 
-	sudo bash -c "perf record $p_cmd --running-time --timestamp-boundary -B --namespaces -m 2048 -r50 -e probe*:* -o $OUTPUT_DIR/instrace.data -aR sleep $capture_duration" &
+	sudo bash -c "perf record $p_cmd --running-time --timestamp-boundary -B --namespaces -m 2048 -r50 -e probe*:* -e sdt_*:* -o $OUTPUT_DIR/instrace.data -aR sleep $capture_duration" &
 	sudo bash -c "perf record $p_cmd -B --namespaces -m 2048 -F 1000 -r50 -o $OUTPUT_DIR/systrace.data -g -aR sleep $capture_duration"
 
 	while pgrep -x "perf" >/dev/null; do

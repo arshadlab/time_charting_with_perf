@@ -76,6 +76,17 @@ Users can set up probes either by directly calling the probe-setting Bash functi
 
 ## Recent Enhancements
 
+## Recent Enhancements
+
+**Python Implementation (recommended for C++ binaries)**
+- Full Python port of BashfulProfiler — available as a CLI tool and importable library
+- Uses **pyelftools** to read ELF symbol tables directly, extracting numeric function addresses instead of relying on mangled symbol names. This makes C++ probing fully reliable — no more failures caused by mangled names with characters that confuse perf's argument parser.
+- Compiler-generated variants (`.clone`, `.cold`, `.isra`, `.part`, `.constprop`) and C++ lambdas are automatically skipped.
+- `show-symbols` now outputs `address \t mangled \t demangled` for easy verification.
+- All symbol demangling is done in a single `c++filt` invocation (batch), not one subprocess per symbol.
+- Install the extra dependency with `pip install pyelftools` (added to `requirements.txt`).
+- See [PYTHON_README.md](PYTHON_README.md) for full documentation.
+
 **bashfulprofiler.sh Improvements:**
 - Enhanced symbol discovery with both mangled and demangled name display
 - Automatic probe name deduplication when multiple symbols match filters
@@ -109,11 +120,27 @@ The setup script will:
 - Clone FlameGraph scripts in `3rdparty/FlameGraph/`
 - Install Python dependencies from requirements.txt
 
-Note: TRACE_ROOT is automatically set when you source bashfulprofiler.sh:
+#### Choose Your Interface
 
-```
+**Bash Version (traditional):**
+```bash
 source ./scripts/bashfulprofiler.sh
+# Now you can use bash functions directly
+probe_show_loaded my_app
 ```
+
+**Python Version (new):**
+```bash
+# Command-line interface
+./scripts/bashfulprofiler.py show-loaded my_app
+
+# Or use as Python library
+python3 -c "from bashfulprofiler import BashfulProfiler; BashfulProfiler().probe_show_loaded('my_app')"
+```
+
+Both versions are functionally identical and use the same CSV format. See [PYTHON_README.md](PYTHON_README.md) for Python-specific documentation and [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) for converting from Bash to Python.
+
+Note: TRACE_ROOT is automatically set when you source bashfulprofiler.sh (Bash) or create a BashfulProfiler instance (Python).
 
 #### Setup system with linux perf tool enabled
 
