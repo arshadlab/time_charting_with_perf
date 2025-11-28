@@ -16,9 +16,35 @@ Flow Diagram:
 
 - Identify binaries and their exported functions or symbols to set probes on. Any .so file or kernel module with publicly exported methods can be traced. However, using binaries built with debug symbols (-g option, but still optimized for release) provides richer probe points. It is recommended to generate binaries with debug symbols included and not stripped. Regular expression is supported (e.g grep) as symbol filter.
 
-- set TRACE_ROOT to this repo local path and source bashfulprofiler.sh for bash function availability.
+- Source bashfulprofiler.sh for bash function availability. TRACE_ROOT will be set automatically to the repository root.
 
 - Create a .csv recipe to define probes across multiple .so files and kernel modules. Alternatively, users can set ad hoc probe points by directly calling the script's functions. See probes directory for examples.
+
+### Available Bash Functions
+
+After sourcing `bashfulprofiler.sh`, the following functions become available:
+
+**Probe Discovery Functions:**
+- `probe_show_loaded <process_name_or_pid> [filter]` - Show loaded libraries from a running process. Filter is optional regex pattern.
+- `probe_show_symbols <library_path> [filter]` - Show exported symbols from a binary (.so or .ko). Returns both mangled and demangled symbol names. Filter is optional regex pattern.
+
+**Probe Setting Functions:**
+- `probe_set_from_binary <library_path> <symbol_filter>` - Set entry/exit probes for symbols matching the filter in a binary.
+- `probe_set_from_csv <csv_file>` - Set probes based on a CSV recipe file.
+- `probe_set_with_duration <library_path> <function_name> <symbol_address>` - Set entry and exit probes for a specific symbol.
+- `probe_set_single <library_path> <probe_name> [address]` - Set a single probe (without automatic entry/exit pair).
+
+**Probe Removal Functions:**
+- `probe_remove <probe_name>` - Remove entry and exit probes for a specific function.
+- `probe_remove_from_csv <csv_file>` - Remove probes defined in a CSV file.
+- `probe_remove_all` - Remove all active probes.
+
+**Capture & Analysis:**
+- `trace_capture_and_convert [duration_seconds] [process_name_or_pid]` - Capture traces and convert them to HTML and FlameGraph formats. Default duration is 8 seconds.
+
+**Utility Functions:**
+- `get_unique_name <base_name> <output_var>` - Generate unique probe names when multiple symbols match.
+- `shorten_templates <template_name>` - Shorten C++ template names for more readable probe names.
   
 - Start the workload in a separate console.
   
@@ -41,6 +67,28 @@ Flow Diagram:
 
 Users can set up probes either by directly calling the probe-setting Bash functions or by using a .csv file as a recipe for a quick and consistent setup across different binaries and kernel modules. This approach allows teams to share recipes, ensuring uniform output and faster results.
 
+**Key Improvements in bashfulprofiler.sh:**
+- **Automatic name deduplication**: When multiple symbols match a filter, unique probe names are automatically generated using indexed suffixes.
+- **Enhanced symbol discovery**: `probe_show_symbols` displays both mangled and demangled C++ symbol names, making it easier to identify the right functions to trace.
+- **Flexible process targeting**: Functions accept either process names or PIDs for easier workflow integration.
+- **Template name shortening**: Long C++ template names are automatically shortened for more readable probe names.
+
+
+## Recent Enhancements
+
+**bashfulprofiler.sh Improvements:**
+- Enhanced symbol discovery with both mangled and demangled name display
+- Automatic probe name deduplication when multiple symbols match filters
+- Support for process name or PID in capture and discovery functions
+- C++ template name shortening for cleaner probe names
+- Better error handling and user feedback during probe setup
+- Progress indicators showing current/total when processing multiple symbols
+
+**Build System:**
+- Automated dependency installation via setup_dependency.sh
+- Kernel version-matched perf build with build_perf_with_ctf.sh
+- Proper Python 3.10/3.12 compatibility handling
+- Organized probe recipes in dedicated probes/ directory
 
 ## Getting Started
 ### Installation
@@ -52,7 +100,18 @@ First of all, git clone repo to local folder.
 git clone https://github.com/arshadlab/time_charting_with_perf
 cd time_charting_with_perf
 ./setup_dependency.sh
-export TRACE_ROOT=$PWD
+```
+
+The setup script will:
+- Install libbabeltrace-dev for CTF trace format support
+- Clone and build ctf2ctf tool in `3rdparty/ctf2ctf/` (with perf support patch applied)
+- Clone Catapult project in `3rdparty/catapult/` for trace2html conversion
+- Clone FlameGraph scripts in `3rdparty/FlameGraph/`
+- Install Python dependencies from requirements.txt
+
+Note: TRACE_ROOT is automatically set when you source bashfulprofiler.sh:
+
+```
 source ./scripts/bashfulprofiler.sh
 ```
 
@@ -67,10 +126,16 @@ A helper script is provided in the scripts folder to download the kernel source 
 For more control, users can choose to execute the commands manually.
 
 ```
-$ ./build_perf_with_ctf.sh
+$ ./scripts/build_perf_with_ctf.sh
 ```
 
 Keep in mind that the perf tool requires root permissions (e.g sudo) and capabilities to function properly. It also depends on certain kernel CONFIG options being enabled. In most cases, the stock kernel includes the necessary configurations by default.
+
+The build script automatically:
+- Clones the Linux kernel source matching your running kernel version
+- Installs all required dependencies (babeltrace, libdw, etc.)
+- Builds perf with CTF conversion support
+- Copies the built perf binary to the repository root
 
 If perf command doesn't work as expected then most likely kernel is not build with required configs.  Please refer to existing manuals on how to rebuild kernel.  Make sure below configs are enabled in the .config file.
 
@@ -110,7 +175,13 @@ As long as the kernel headers for the target kernel are properly installed, ther
 <kernel src>/tools/perf $ make
 ```
 
-Once the perf binary is built, it can either be copied to /usr/bin/ for system-wide access, or the current directory can be added to the PATH environment variable for convenient use.
+Once the perf binary is built, it can either be copied to /usr/bin/ for system-wide access:
+
+```bash
+sudo cp ./perf /usr/bin/
+```
+
+Or use the locally built version in the repository root directory. The build script leaves the `linux-src` directory which can be deleted to save disk space after successful build.
 
 #### Setup probes using csv
 
@@ -125,10 +196,10 @@ The helper functions are provided in bashfulprofiler.sh, so make sure to source 
 source ./scripts/bashfulprofiler.sh
 ```
 
-Setup probes using probe_set_csv bash function
+Setup probes using probe_set_from_csv bash function
 
 ```
-$ probe_set_csv ./probes/intel_media.csv
+$ probe_set_from_csv ./probes/intel_media.csv
 Setting probe for: vaDisplayIsValid at 0x00000000000043e0
 perf command:
 	 sudo perf probe -x /usr/lib/x86_64-linux-gnu/libva.so.2.2200.0 -a vaDisplayIsValid_entry=0x00000000000043e0
@@ -153,25 +224,51 @@ You can now use it in all perf tools, such as:
 
 #### Setup probes using lib
 
-Probes can also be set directly on .so files. Use the probe_set_all_from_binary script function with an optional filter to set probes. If no filter is provided, probes will be added to all exported symbols. Both, publicly available symbols (e.g., using -T) as well as debug symbols will be searched (e.g., using -t).
+Probes can also be set directly on .so files. Use the probe_set_from_binary script function with an optional filter to set probes. If no filter is provided, probes will be added to all exported symbols. Both, publicly available symbols (e.g., using -T) as well as debug symbols will be searched (e.g., using -t).
 
 This will place entry/exit probes on all function symbols in iHD_drv_video.so that contain 'Execute(' in their names.  Note the escape '\' for special characters.
 
 ```
-$ probe_set_all_from_binary /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so 'Execute\('
+$ probe_set_from_binary /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so 'Execute\('
 ```
 
 Setting up probes is typically a one-time task, unless the system is rebooted or the target binary is modified or updated. New probes are appended to the existing list, and if a probe with the same name is added again, it will be overwritten. Once configured, these probes remain available, allowing multiple capture sessions to be conducted without the need for reconfiguration. This persistence across sessions provides the flexibility to perform repeated analyses efficiently.
 
 #### Start Capturing
 
-Initiating capture using capture.sh.  Make sure target process is running (e.g gst-launch).  Default capturing duration is 8 seconds
-```
-$ trace_capture_and_convert [capture duration in seconds]
-```
-trace.html and flamegraph.svg will be in output folder and ready to be viewed in browser
+Make sure target process is running (e.g gst-launch). The capture function now supports optional process filtering:
 
+```bash
+# Capture all processes for 8 seconds (default)
+$ trace_capture_and_convert
+
+# Capture for specific duration (e.g., 10 seconds)
+$ trace_capture_and_convert 10
+
+# Capture specific process by name for 8 seconds
+$ trace_capture_and_convert 8 gst-launch-1.0
+
+# Capture specific process by PID
+$ trace_capture_and_convert 8 12345
 ```
+
+The function will:
+1. Record instrumentation traces (probe events) with timing information
+2. Record system-wide stack traces for flamegraph generation
+3. Convert perf data to CTF format
+4. Generate JSON traces
+5. Create interactive HTML trace viewer
+6. Generate flamegraph visualization
+
+Output files are created in the `output/` directory:
+- `trace.html` - Interactive timeline view
+- `flamegraph.svg` - CPU hotspot visualization
+- `instrace.data` / `systrace.data` - Raw perf data files
+- `instrace.json` / `systrace.json` - Converted trace data
+
+View results in a browser:
+
+```bash
 $ <browser> ./output/trace.html ./output/flamegraph.svg
 ```
 
@@ -186,7 +283,7 @@ $ probe_remove_all
 A sample recipe file, intel_media.csv, is included in this repo as a starting point for Intel Media Driver profiling. It sets up probes on all libva functions that start with va, adds probes to the media driver for symbols containing CreateBuffer, and finally, includes probes for selected functions in the i915 module.
 
 ```
-#,probe_set_csv will look into the given process to find library path from loaded .so files
+#,probe_set_from_csv will look into the given process to find library path from loaded .so files
 #,If absolute path is given then process name is ignored.
 
 #,Header: ".so name","process name","symbol filter"
@@ -205,21 +302,50 @@ i915.ko,,\bflush_submission$
 ...
 ```
 
-Setting probes based on recipe can be done using probe_set_csv function call.
+Setting probes based on recipe can be done using probe_set_from_csv function call.
 
 ```
-$ probe_set_csv ./scripts/intel_media.csv
+$ probe_set_from_csv ./probes/intel_media.csv
 ```
 
-The probes.csv is a comma-separated .csv file with four columns and no spaces around commas. The first column is designated for the .so/binary to be probed, and it can contain either just the name or the absolute path. If only the name is provided, the process name - which is the second entry - will be utilized to determine the absolute location of the .so. The process, presumably running with the .so file loaded, should be active prior to setting up probes. However, if an absolute path is provided, there's no requirement for the process name, and probe setup can be conducted at any time.
+The CSV file format is comma-separated with three columns and no spaces around commas:
 
-The third column is designated for the symbol on which the probe is to be set. This symbol can be either fully named or partially named with a wildcard, following the Linux grep regular expression pattern. If multiple entries match, probes will be set up on all of them.
+**Column 1: Library/Binary Path**
+- Can be either the library name (e.g., `libva.so.2.2200.0`) or absolute path
+- Can be a kernel module name (e.g., `i915.ko`)
+- If only the name is provided, the process name in column 2 is used to find the absolute path
+- If absolute path is provided, process name is not required
 
-The process name is required for the first row without path, and all subsequent rows use the same name for finding the .so path. Also if multiple symbols match the regular expression, the probe name is appended with the symbol address to ensure uniqueness and facilitate tracking. Additionally, the complete symbol line output by objdump is displayed in the script, which helps relate the captured probe to the exact symbol signature.
+**Column 2: Process Name**
+- Used to locate the library path when column 1 contains only the library name
+- Can be left empty if absolute path is provided in column 1
+- Value carries forward to subsequent rows if left empty
+
+**Column 3: Symbol Filter**
+- Regular expression pattern (grep-compatible) to match symbol names
+- Can be a full symbol name or partial with wildcards
+- If multiple symbols match, probes are set on all of them with auto-generated unique names
+- Supports word boundaries (`\b`) and other regex features
+
+The process name is required for the first row without path, and all subsequent rows use the same name for finding the .so path. When multiple symbols match the regular expression, probe names are automatically made unique using indexed suffixes to ensure proper tracking. The script displays both mangled and demangled symbol names to help identify the exact symbols being probed.
 
 The sample intel_media.csv for Intel media performance analysis leverages symbols exported by .so. However, if the binary is compiled with the -g option, more precise probing is possible as a larger set of symbols will be accessible for selection.
 
-Scripts are included in the repo to view loaded libraries and symbols exported by them.
+Helper functions are included to view loaded libraries and symbols exported by them:
+
+```bash
+# Show all loaded .so files from a process
+$ probe_show_loaded <process_name_or_pid>
+
+# Show loaded .so files matching a pattern
+$ probe_show_loaded benchmark_app libopenvino
+
+# Show all symbols from a library
+$ probe_show_symbols /path/to/library.so
+
+# Show symbols matching a filter (regex)
+$ probe_show_symbols /path/to/library.so "compile_model"
+```
 
 ![image](https://github.com/user-attachments/assets/10cc7e95-8de7-46bb-a049-43cc7d698667)
 
@@ -232,7 +358,7 @@ Sample probe file for OpenVino analysis:
 #, Header: ".so name","process name","symbol filter"
 #, No space before and after commas
 #, Openvino library with debug symbol included
-#, probe_set_csv will look into the given process to find library path from loaded .so files
+#, probe_set_from_csv will look into the given process to find library path from loaded .so files
 #, If absolute path is given then process name is ignored.
 #, Below probes assume openvino plugins are compiled with debug symbols included (e.g -g).
 
